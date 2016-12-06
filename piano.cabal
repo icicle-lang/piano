@@ -16,10 +16,11 @@ library
                     , ambiata-anemone
                     , ambiata-p
                     , ambiata-x-show
-                    , transformers                    >= 0.3        && < 0.6
+                    , ambiata-x-vector
                     , bytestring                      == 0.10.*
                     , text                            == 1.2.*
                     , thyme                           == 0.3.*
+                    , transformers                    >= 0.3        && < 0.6
                     , vector                          == 0.11.*
 
   ghc-options:
