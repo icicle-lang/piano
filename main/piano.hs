@@ -8,14 +8,23 @@ import           DependencyInfo_ambiata_piano
 import           Control.Monad.IO.Class (liftIO)
 
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy.Char8 as Lazy
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+import           Data.Thyme (Day)
+import           Data.Thyme.Time (toGregorian)
+import qualified Data.Vector.Unboxed as Unboxed
 
 import           P
 
+import           Piano.Foreign
 import           Piano.Parser
 
 import           System.IO (IO, FilePath, BufferMode(..))
 import           System.IO (hSetBuffering, stdout, stderr, putStrLn, print)
 import           System.Exit (exitSuccess)
+
+import           Text.Printf (printf)
 
 import           X.Control.Monad.Trans.Either (EitherT, hoistEither)
 import           X.Control.Monad.Trans.Either.Exit (orDie)
@@ -26,12 +35,13 @@ import           X.Options.Applicative (help, metavar, argument, str, subparser)
 
 
 data PianoCommand =
-  PianoCheck !FilePath
-  deriving (Eq, Show)
+    PianoCheck !FilePath
+  | PianoLookup !FilePath
+    deriving (Eq, Show)
 
 data PianoError =
-  PianoParserError !ParserError
-  deriving (Eq, Ord, Show)
+    PianoParserError !ParserError
+    deriving (Eq, Ord, Show)
 
 renderPianoError :: PianoError -> Text
 renderPianoError = \case
@@ -60,11 +70,17 @@ parser =
 commands :: [Mod CommandFields PianoCommand]
 commands = [
     command' "check" "Validate that a chord descriptor can be loaded." pPianoCheck
+  , command' "lookup" "Lookup entities passed to stdin." pPianoLookup
   ]
 
 pPianoCheck :: Parser PianoCommand
 pPianoCheck =
   PianoCheck
+    <$> pDescriptor
+
+pPianoLookup :: Parser PianoCommand
+pPianoLookup =
+  PianoLookup
     <$> pDescriptor
 
 pDescriptor :: Parser FilePath
@@ -79,3 +95,23 @@ run = \case
     bs <- liftIO $ B.readFile path
     _ <- firstT PianoParserError . hoistEither $ parseKeys bs
     pure ()
+  PianoLookup path -> do
+    bs <- liftIO $ B.readFile path
+    keys <- firstT PianoParserError . hoistEither $ parseKeys bs
+    piano <- liftIO $ newPiano keys
+    lines <- liftIO $ fmap Lazy.toStrict . Lazy.lines <$> Lazy.getContents
+    liftIO . for_ lines $ \entity -> do
+      mdays <- lookupLinear piano entity
+      case mdays of
+        Nothing ->
+          putStrLn "<not found>"
+        Just days ->
+          T.putStrLn . T.intercalate "|" . fmap renderDay $ Unboxed.toList days
+
+renderDay :: Day -> Text
+renderDay day =
+  let
+    (y, m, d) =
+      toGregorian day
+  in
+    T.pack $ printf "%04d-%02d-%02d" y m d

@@ -4,15 +4,11 @@
 module Test.Piano.Parser where
 
 import           Disorder.Core.Run (ExpectedTestSpeed(..), disorderCheckEnvAll)
-import           Disorder.Corpus (muppets)
+import           Disorder.Either (testEither)
 import           Disorder.Jack
 
-import           Data.ByteString (ByteString)
-import qualified Data.ByteString as B
-import           Data.Thyme (Day)
-import           Data.Thyme.Time (fromGregorian)
-import qualified Data.Vector as Boxed
-import           Data.Word (Word8)
+import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 
 import           P
 
@@ -21,45 +17,30 @@ import           Piano.Parser
 
 import           System.IO (IO)
 
+import           Test.Piano.Jack
 
-jKey :: Jack Key
-jKey =
-  Key
-    <$> jEntity
-    <*> jTime
 
-jEntity :: Jack ByteString
-jEntity =
-  oneOf [
-      elements muppets
-    , B.pack <$> listOf jEntityChar
-    ]
-
-jEntityChar :: Jack Word8
-jEntityChar =
-  arbitrary `suchThat` \b ->
-    b /= pipe &&
-    b /= feed
-
-feed :: Word8
-feed =
-  0x0A -- '\n'
-
-pipe :: Word8
-pipe =
-  0x7C -- '|'
-
-jTime :: Jack Day
-jTime =
-  fromGregorian
-    <$> choose (1600, 3000)
-    <*> choose (1, 12)
-    <*> choose (1, 31)
+prop_parse_keys_valid_map :: Property
+prop_parse_keys_valid_map =
+  gamble jKey $ \k0@(Key e t) ->
+  gamble (listOf jKey) $ \ks0 ->
+    testEither renderParserError $ do
+      ks <- parseKeys $ renderKeys (k0 : ks0)
+      case Map.lookup e ks of
+        Nothing ->
+          pure .
+            counterexample ("Entity not found: " <> show e) $
+            False
+        Just ts ->
+          pure .
+            counterexample ("Found entity: " <> show (e, ts)) $
+            counterexample ("Time was missing: " <> show t) $
+            Set.member t ts
 
 prop_tripping_keys :: Property
 prop_tripping_keys =
-  gamble (Boxed.fromList <$> listOf jKey) $
-    tripping renderKeys parseKeys
+  gamble (fromKeys <$> listOf jKey) $
+    tripping (renderKeys . toKeys) parseKeys
 
 prop_tripping_key :: Property
 prop_tripping_key =
