@@ -39,6 +39,10 @@ newtype Piano =
       unPiano :: ForeignPtr C'piano
     }
 
+instance NFData Piano where
+  rnf !_ =
+    ()
+
 allocIdSections :: [ByteString] -> IO (Ptr C'piano_section32)
 allocIdSections bss =
   let

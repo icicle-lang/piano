@@ -85,6 +85,10 @@ instance Show Key where
   showsPrec =
     gshowsPrec
 
+instance NFData Entity
+
+instance NFData Key
+
 sortKeys :: Boxed.Vector Key -> Boxed.Vector Key
 sortKeys keys =
   unsafePerformIO $ do
