@@ -79,8 +79,6 @@ benchmark =
     bgroup "lookup" [
         bench "Data.Map" $
           nf (Map.lookup needle . envMap) x
-      , bench "linear" $
-          nfIO (lookupLinear (envPiano x) (entityId needle))
       , bench "binary-search" $
           nfIO (lookupBinary (envPiano x) (entityId needle))
       ]
