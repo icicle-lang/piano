@@ -1,15 +1,21 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE TupleSections #-}
 module Piano.Foreign (
     Piano(..)
   , newPiano
-  , lookupLinear
+
+  , CPiano(..)
+  , withCPiano
+
+  , lookup
   , lookupBinary
   ) where
 
 import           Anemone.Foreign.Data (CError(..), CSize(..))
 
+import           Data.Bits (shiftR)
 import qualified Data.ByteString as B
 import           Data.ByteString.Internal (ByteString(..))
 import qualified Data.ByteString.Internal as B
@@ -21,7 +27,7 @@ import qualified Data.Set as Set
 import           Data.Thyme (Day(..))
 import qualified Data.Vector.Storable as Storable
 import qualified Data.Vector.Unboxed as Unboxed
-import           Data.Word (Word8)
+import           Data.Word (Word8, Word32)
 
 import           Foreign.Concurrent (newForeignPtr)
 import           Foreign.ForeignPtr (ForeignPtr, newForeignPtr_, withForeignPtr)
@@ -42,9 +48,57 @@ newtype Piano =
       unPiano :: ForeignPtr C'piano
     }
 
+newtype CPiano =
+  CPiano {
+      unCPiano :: Ptr C'piano
+    }
+
 instance NFData Piano where
   rnf !_ =
     ()
+
+allocBuckets :: [Word32] -> IO (Ptr C'piano_section32)
+allocBuckets hs =
+  let
+    bucketShift :: Int
+    bucketShift =
+      16
+
+    maxBucket :: Word32
+    maxBucket =
+      maxBound `shiftR` bucketShift
+
+    bucket :: Word32 -> Word32
+    bucket h =
+      fromIntegral (h `shiftR` bucketShift) :: Word32
+
+    fromHash :: Word32 -> (Word32, Int32)
+    fromHash h =
+      (bucket h, 1)
+
+    buckets0 :: Map Word32 Int32
+    buckets0 =
+      Map.fromAscList $
+      fmap (, 0) [0..maxBucket]
+
+    bucketsN :: Map Word32 Int32
+    bucketsN =
+      Map.fromAscListWith (+) $
+      fmap fromHash hs
+
+    buckets :: Map Word32 Int32
+    buckets =
+      Map.union bucketsN buckets0
+
+    lengths :: [Int32]
+    lengths =
+      Map.elems buckets
+
+    offsets :: [Int32]
+    offsets =
+      List.scanl' (+) 0 lengths
+  in
+    newArray $ List.zipWith C'piano_section32 offsets lengths
 
 allocIdSections :: [ByteString] -> IO (Ptr C'piano_section32)
 allocIdSections bss =
@@ -88,6 +142,7 @@ allocTimeData =
 allocPiano :: Map Entity (Set Day) -> IO (Ptr C'piano)
 allocPiano entities = do
   pPiano <- malloc
+  pBuckets <- allocBuckets . fmap entityHash $ Map.keys entities
   pHashes <- newArray . fmap entityHash $ Map.keys entities
   pIdSections <- allocIdSections . fmap entityId $ Map.keys entities
   pIdData <- allocIdData . fmap entityId $ Map.keys entities
@@ -95,7 +150,8 @@ allocPiano entities = do
   pTimeData <- allocTimeData . fmap (Set.mapMonotonic toIvorySeconds) $ Map.elems entities
 
   poke pPiano C'piano {
-      c'piano'count = fromIntegral (Map.size entities)
+      c'piano'buckets = pBuckets
+    , c'piano'count = fromIntegral (Map.size entities)
     , c'piano'hashes = pHashes
     , c'piano'id_sections = pIdSections
     , c'piano'id_data = pIdData
@@ -110,6 +166,7 @@ freePiano pPiano = do
   piano <- peek pPiano
   free pPiano
 
+  free $ c'piano'buckets piano
   free $ c'piano'hashes piano
   free $ c'piano'id_sections piano
   free $ c'piano'id_data piano
@@ -121,16 +178,21 @@ newPiano keys = do
   ptr <- allocPiano keys
   Piano <$> newForeignPtr ptr (freePiano ptr)
 
+withCPiano :: Piano -> (CPiano -> IO a) -> IO a
+withCPiano (Piano fp) io =
+  withForeignPtr fp $ \ptr ->
+    io (CPiano ptr)
+
 type ForeignLookup =
   Ptr C'piano -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> IO CError
 
-lookupLinear :: Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
-lookupLinear =
-  lookupWith c'piano_lookup_linear
+lookup :: Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
+lookup =
+  lookupWith unsafe'c'piano_lookup
 
 lookupBinary :: Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
 lookupBinary =
-  lookupWith c'piano_lookup_binary
+  lookupWith unsafe'c'piano_lookup_binary
 
 lookupWith :: ForeignLookup -> Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
 lookupWith c_lookup (Piano pfp) (PS nfp noff nlen) =

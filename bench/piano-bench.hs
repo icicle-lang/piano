@@ -5,7 +5,7 @@
 
 import qualified Data.ByteString.Char8 as Char8
 import           Data.Map (Map)
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.Thyme (Day(..))
@@ -81,4 +81,6 @@ benchmark =
           nf (Map.lookup needle . envMap) x
       , bench "binary-search" $
           nfIO (lookupBinary (envPiano x) (entityId needle))
+      , bench "hashy-search" $
+          nfIO (lookup (envPiano x) (entityId needle))
       ]

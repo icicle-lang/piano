@@ -13,6 +13,8 @@ typedef struct piano_section32 {
 } piano_section32_t;
 
 typedef struct piano {
+    piano_section32_t *buckets;
+
     int32_t count;
     uint32_t *hashes;
 
@@ -22,5 +24,13 @@ typedef struct piano {
     piano_section32_t *time_sections;
     int64_t *time_data;
 } piano_t;
+
+error_t piano_lookup (
+    piano_t *piano
+  , const uint8_t *needle_id
+  , size_t needle_id_size
+  , int64_t *out_count
+  , const int64_t **out_times
+  );
 
 #endif//__PIANO_H

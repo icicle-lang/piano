@@ -101,7 +101,7 @@ run = \case
     piano <- liftIO $ newPiano keys
     lines <- liftIO $ fmap Lazy.toStrict . Lazy.lines <$> Lazy.getContents
     liftIO . for_ lines $ \entity -> do
-      mdays <- lookupLinear piano entity
+      mdays <- lookup piano entity
       case mdays of
         Nothing ->
           putStrLn "<not found>"

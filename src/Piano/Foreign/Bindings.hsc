@@ -24,6 +24,7 @@ import Anemone.Foreign.Data (CError(..))
 #stoptype
 
 #starttype struct piano
+#field buckets , Ptr <piano_section32>
 #field count , Int32
 #field hashes , Ptr Word32
 #field id_sections , Ptr <piano_section32>
@@ -32,5 +33,5 @@ import Anemone.Foreign.Data (CError(..))
 #field time_data , Ptr Int64
 #stoptype
 
-#ccall piano_lookup_linear , Ptr <piano> -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> IO CError
-#ccall piano_lookup_binary , Ptr <piano> -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> IO CError
+#ccall_unsafe piano_lookup , Ptr <piano> -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> IO CError
+#ccall_unsafe piano_lookup_binary , Ptr <piano> -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> IO CError

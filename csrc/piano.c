@@ -68,55 +68,6 @@ int64_t * piano_section32_int64_start (piano_section32_t section, int64_t *data)
     return data + section.offset;
 }
 
-error_t piano_lookup_linear (
-    piano_t *piano
-  , const uint8_t *needle_id
-  , size_t needle_id_size
-  , int64_t *out_count
-  , const int64_t **out_times
-  )
-{
-    uint32_t needle_hash = piano_hash (needle_id, needle_id_size);
-
-    int32_t count = piano->count;
-    uint32_t *hashes = piano->hashes;
-
-    piano_section32_t *id_sections = piano->id_sections;
-    uint8_t *id_data = piano->id_data;
-
-    piano_section32_t *time_sections = piano->time_sections;
-    int64_t *time_data = piano->time_data;
-
-    for (int32_t i = 0; i < count; i++) {
-        uint32_t hash = hashes[i];
-        piano_section32_t id_section = id_sections[i];
-        piano_section32_t time_section = time_sections[i];
-
-        int64_t cmp = piano_compare (
-            needle_hash
-          , needle_id
-          , needle_id_size
-          , hash
-          , piano_section32_uint8_start (id_section, id_data)
-          , id_section.length
-          );
-
-        if (cmp != 0) {
-            continue;
-        }
-
-        *out_count = time_section.length;
-        *out_times = piano_section32_int64_start (time_section, time_data);
-
-        return 0;
-    }
-
-    *out_count = 0;
-    *out_times = NULL;
-
-    return 0;
-}
-
 error_t piano_lookup_binary (
     piano_t *piano
   , const uint8_t *needle_id
@@ -158,6 +109,71 @@ error_t piano_lookup_binary (
         if (cmp == 0) {
             *out_count = time_section.length;
             *out_times = piano_section32_int64_start (time_section, time_data);
+            return 0;
+        }
+
+        if (cmp > 0) {
+            lo = m + 1;
+        } else {
+            hi = m - 1;
+        }
+
+        if (lo > hi) {
+            *out_count = 0;
+            *out_times = NULL;
+            return 0;
+        }
+    }
+}
+
+error_t piano_lookup (
+    piano_t *piano
+  , const uint8_t *needle_id
+  , size_t needle_id_size
+  , int64_t *out_count
+  , const int64_t **out_times
+  )
+{
+    uint32_t needle_hash = piano_hash (needle_id, needle_id_size);
+
+    piano_section32_t *buckets = piano->buckets;
+    piano_section32_t bucket = buckets[needle_hash >> 16];
+
+    int32_t offset = bucket.offset;
+    int32_t count = bucket.length;
+
+    uint32_t *hashes = piano->hashes + offset;
+
+    piano_section32_t *id_sections = piano->id_sections + offset;
+    uint8_t *id_data = piano->id_data;
+
+    piano_section32_t *time_sections = piano->time_sections + offset;
+    int64_t *time_data = piano->time_data;
+
+    int32_t lo = 0;
+    int32_t hi = count - 1;
+
+    for (;;) {
+        int32_t m = (hi + lo) / 2;
+
+        uint32_t hash = hashes[m];
+        piano_section32_t id_section = id_sections[m];
+
+        int64_t cmp = piano_compare (
+            needle_hash
+          , needle_id
+          , needle_id_size
+          , hash
+          , piano_section32_uint8_start (id_section, id_data)
+          , id_section.length
+          );
+
+        if (cmp == 0) {
+            piano_section32_t time_section = time_sections[m];
+
+            *out_count = time_section.length;
+            *out_times = piano_section32_int64_start (time_section, time_data);
+
             return 0;
         }
 
