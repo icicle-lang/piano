@@ -22,7 +22,7 @@ import           Test.Piano.Jack
 
 
 law_lookup :: (Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))) -> Property
-law_lookup lookup =
+law_lookup lookupFn =
   gamble jKey $ \k0@(Key e t) ->
   gamble (listOf jKey) $ \ks0 ->
   testIO $ do
@@ -31,7 +31,7 @@ law_lookup lookup =
         fromKeys (k0 : ks0)
 
     piano <- newPiano keys
-    mts <- lookup piano $ entityId e
+    mts <- lookupFn piano $ entityId e
 
     case mts of
       Nothing ->
@@ -44,9 +44,9 @@ law_lookup lookup =
           counterexample ("Time was missing: " <> show t) $
           Unboxed.elem t ts
 
-prop_lookup_linear :: Property
-prop_lookup_linear =
-  law_lookup lookupLinear
+prop_lookup :: Property
+prop_lookup =
+  law_lookup lookup
 
 prop_lookup_binary :: Property
 prop_lookup_binary =
