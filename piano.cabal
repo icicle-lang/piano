@@ -52,6 +52,7 @@ library
   includes:
                     piano.h
                     piano_bindings.h
+                    piano_internal.h
 
   c-sources:
                     csrc/piano.c

@@ -7,6 +7,8 @@ import           Disorder.Core.IO (testIO)
 import           Disorder.Core.Run (ExpectedTestSpeed(..), disorderCheckEnvAll)
 import           Disorder.Jack
 
+import           Data.ByteString (ByteString)
+import           Data.Thyme (Day)
 import qualified Data.Vector.Unboxed as Unboxed
 
 import           P
@@ -19,8 +21,8 @@ import           System.IO (IO)
 import           Test.Piano.Jack
 
 
-prop_lookup_linear :: Property
-prop_lookup_linear =
+law_lookup :: (Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))) -> Property
+law_lookup lookup =
   gamble jKey $ \k0@(Key e t) ->
   gamble (listOf jKey) $ \ks0 ->
   testIO $ do
@@ -29,7 +31,7 @@ prop_lookup_linear =
         fromKeys (k0 : ks0)
 
     piano <- newPiano keys
-    mts <- lookupLinear piano $ entityId e
+    mts <- lookup piano $ entityId e
 
     case mts of
       Nothing ->
@@ -41,6 +43,14 @@ prop_lookup_linear =
           counterexample ("Found entity: " <> show (e, ts)) $
           counterexample ("Time was missing: " <> show t) $
           Unboxed.elem t ts
+
+prop_lookup_linear :: Property
+prop_lookup_linear =
+  law_lookup lookupLinear
+
+prop_lookup_binary :: Property
+prop_lookup_binary =
+  law_lookup lookupBinary
 
 return []
 tests :: IO Bool
