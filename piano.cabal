@@ -82,6 +82,29 @@ executable piano
                     , transformers                    >= 0.3        && < 0.6
                     , vector                          == 0.11.*
 
+benchmark piano-bench
+  type:
+                    exitcode-stdio-1.0
+
+  main-is:
+                    piano-bench.hs
+
+  ghc-options:
+                    -Wall -threaded -O2
+
+  hs-source-dirs:
+                    bench
+
+  build-depends:
+                      base                            >= 3          && < 5
+                    , ambiata-piano
+                    , ambiata-p
+                    , bytestring                      == 0.10.*
+                    , containers                      == 0.5.*
+                    , criterion                       == 1.1.*
+                    , thyme                           == 0.3.*
+                    , vector                          == 0.11.*
+
 test-suite test
   type:
                     exitcode-stdio-1.0
