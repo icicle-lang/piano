@@ -14,6 +14,7 @@ import Anemone.Foreign.Data (CError(..))
 #include <bindings.dsl.h>
 #include "piano_bindings.h"
 #include "piano.h"
+#include "piano_internal.h"
 
 #strict_import
 
@@ -32,3 +33,4 @@ import Anemone.Foreign.Data (CError(..))
 #stoptype
 
 #ccall piano_lookup_linear , Ptr <piano> -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> IO CError
+#ccall piano_lookup_binary , Ptr <piano> -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> IO CError

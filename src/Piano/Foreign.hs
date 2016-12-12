@@ -5,7 +5,10 @@ module Piano.Foreign (
     Piano(..)
   , newPiano
   , lookupLinear
+  , lookupBinary
   ) where
+
+import           Anemone.Foreign.Data (CError(..), CSize(..))
 
 import qualified Data.ByteString as B
 import           Data.ByteString.Internal (ByteString(..))
@@ -118,13 +121,24 @@ newPiano keys = do
   ptr <- allocPiano keys
   Piano <$> newForeignPtr ptr (freePiano ptr)
 
+type ForeignLookup =
+  Ptr C'piano -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> IO CError
+
 lookupLinear :: Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
-lookupLinear (Piano pfp) (PS nfp noff nlen) =
+lookupLinear =
+  lookupWith c'piano_lookup_linear
+
+lookupBinary :: Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
+lookupBinary =
+  lookupWith c'piano_lookup_binary
+
+lookupWith :: ForeignLookup -> Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
+lookupWith c_lookup (Piano pfp) (PS nfp noff nlen) =
   withForeignPtr pfp $ \pptr ->
   withForeignPtr nfp $ \nptr ->
   alloca $ \pcount ->
   alloca $ \pptimes -> do
-    err <- c'piano_lookup_linear pptr (nptr `plusPtr` noff) (fromIntegral nlen) pcount pptimes
+    err <- c_lookup pptr (nptr `plusPtr` noff) (fromIntegral nlen) pcount pptimes
 
     time_count <- fromIntegral <$> peek pcount
 
@@ -142,3 +156,4 @@ lookupLinear (Piano pfp) (PS nfp noff nlen) =
       pure $ Just times
     else
       pure Nothing
+{-# INLINE lookupWith #-}

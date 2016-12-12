@@ -1,3 +1,6 @@
+#ifndef __PIANO_H
+#define __PIANO_H
+
 #if CABAL
 #include "anemone_base.h"
 #else
@@ -20,10 +23,4 @@ typedef struct piano {
     int64_t *time_data;
 } piano_t;
 
-error_t piano_lookup_linear (
-    piano_t *piano
-  , const uint8_t *entity_id
-  , size_t entity_id_size
-  , int64_t *out_count
-  , const int64_t **out_times
-  );
+#endif//__PIANO_H
