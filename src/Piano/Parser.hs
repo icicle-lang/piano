@@ -24,12 +24,17 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as Char8
 import           Data.ByteString.Internal (ByteString(..))
 import qualified Data.ByteString.Unsafe as B
+import           Data.Map (Map)
+import qualified Data.Map.Strict as Map
+import           Data.Set (Set)
+import qualified Data.Set as Set
 import qualified Data.Text.Encoding as T
 import           Data.Thyme (Day)
 import           Data.Thyme.Time (toGregorian)
-import qualified Data.Vector as Boxed
 import qualified Data.Vector.Unboxed as Unboxed
-import           Data.Word (Word8)
+import           Data.Word (Word8, Word32)
+
+import           Foreign.ForeignPtr (ForeignPtr)
 
 import           P
 
@@ -55,23 +60,15 @@ renderParserError = \case
   ParserUnsupportedTimeFormat bs ->
     "Failed parsing row, unsupported time format: " <> T.decodeUtf8 bs
 
-parseKeys :: ByteString -> Either ParserError (Boxed.Vector Key)
+parseKeys :: ByteString -> Either ParserError (Map Entity (Set Day))
 parseKeys bss0@(PS fp _ _) =
   runST $ do
     u <- Grow.new 1024
 
     let
-      boxKeys :: Unboxed.Vector (Int, Int, Day) -> Boxed.Vector Key
-      boxKeys =
-        fmap boxKey . Boxed.convert
-
-      boxKey :: (Int, Int, Day) -> Key
-      boxKey (off, len, time) =
-        Key (PS fp off len) time
-
       loop bss1 =
         if B.null bss1 then
-          Right . boxKeys <$> Grow.unsafeFreeze u
+          Right . fromUnboxedKeys fp <$> Grow.unsafeFreeze u
         else
           let
             (bs, bss2) =
@@ -80,12 +77,32 @@ parseKeys bss0@(PS fp _ _) =
             case parseKey bs of
               Left err ->
                 pure $ Left err
-              Right (Key (PS _ off len) time) -> do
-                Grow.add u (off, len, time)
+              Right (Key entity time) -> do
+                let
+                  hash =
+                    entityHash entity
+
+                  PS _ off len =
+                    entityId entity
+
+                Grow.add u (hash, off, len, time)
                 loop bss2
 
     loop bss0
 {-# INLINE parseKeys #-}
+
+fromUnboxedKeys :: ForeignPtr Word8 -> Unboxed.Vector (Word32, Int, Int, Day) -> Map Entity (Set Day)
+fromUnboxedKeys fp =
+  Map.fromAscListWith Set.union .
+  fmap (fromUnboxedKey fp) .
+  Unboxed.toList .
+  sortUnboxedKeys fp
+{-# INLINE fromUnboxedKeys #-}
+
+fromUnboxedKey :: ForeignPtr Word8 -> (Word32, Int, Int, Day) -> (Entity, Set Day)
+fromUnboxedKey fp (hash, off, len, time) =
+  (unsafeMkEntity hash $ PS fp off len, Set.singleton time)
+{-# INLINE fromUnboxedKey #-}
 
 parseKey :: ByteString -> Either ParserError Key
 parseKey bs =
@@ -97,7 +114,7 @@ parseKey bs =
       Left $ ParserTimeMissing bs
     else do
       !time <- parseTime time0
-      Right $ Key entity time
+      Right $ Key (mkEntity entity) time
 {-# INLINE parseKey #-}
 
 parseTime :: ByteString -> Either ParserError Day
@@ -112,13 +129,13 @@ parseTime bs = do
         Left $ ParserUnsupportedTimeFormat bs
 {-# INLINE parseTime #-}
 
-renderKeys :: Boxed.Vector Key -> ByteString
+renderKeys :: [Key] -> ByteString
 renderKeys =
-  Char8.unlines . Boxed.toList . fmap renderKey
+  Char8.unlines . fmap renderKey
 
 renderKey :: Key -> ByteString
 renderKey (Key e t) =
-  e <> "|" <> renderTime t
+  entityId e <> "|" <> renderTime t
 
 renderTime :: Day -> ByteString
 renderTime day =

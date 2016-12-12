@@ -10,6 +10,10 @@ cabal-version:         >= 1.8
 build-type:            Custom
 description:           piano
 
+extra-source-files:
+                    csrc/*.h
+                    csrc/*.c
+
 library
   build-depends:
                       base                            >= 3          && < 5
@@ -17,11 +21,14 @@ library
                     , ambiata-p
                     , ambiata-x-show
                     , ambiata-x-vector
+                    , bindings-DSL                    >= 1.0.0      && <= 1.0.23
                     , bytestring                      == 0.10.*
+                    , containers                      == 0.5.*
                     , text                            == 1.2.*
                     , thyme                           == 0.3.*
                     , transformers                    >= 0.3        && < 0.6
                     , vector                          == 0.11.*
+                    , vector-algorithms               == 0.7.*
 
   ghc-options:
                     -Wall -O2
@@ -32,7 +39,25 @@ library
   exposed-modules:
                     Piano
                     Piano.Data
+                    Piano.Foreign
+                    Piano.Foreign.Bindings
                     Piano.Parser
+
+  include-dirs:
+                    csrc
+
+  install-includes:
+                    piano.h
+
+  includes:
+                    piano.h
+                    piano_bindings.h
+
+  c-sources:
+                    csrc/piano.c
+
+  cc-options:
+                    -std=c99 -O3 -msse4.2 -Wall -Werror -DCABAL=1
 
 executable piano
   ghc-options:
@@ -53,8 +78,9 @@ executable piano
                     , bytestring                      == 0.10.*
                     , optparse-applicative            >= 0.11 && < 0.13
                     , text
+                    , thyme                           == 0.3.*
                     , transformers                    >= 0.3        && < 0.6
-
+                    , vector                          == 0.11.*
 
 test-suite test
   type:
@@ -74,9 +100,11 @@ test-suite test
                     , ambiata-piano
                     , ambiata-disorder-core
                     , ambiata-disorder-corpus
+                    , ambiata-disorder-eithert
                     , ambiata-disorder-jack
                     , ambiata-p
                     , bytestring                      == 0.10.*
+                    , containers                      == 0.5.*
                     , QuickCheck                      >= 2.8.2 && < 2.9
                     , quickcheck-instances            == 0.3.*
                     , thyme                           == 0.3.*
