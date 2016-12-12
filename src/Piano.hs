@@ -1,2 +1,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
-module Piano where
+module Piano (
+    module X
+  ) where
+
+import           Piano.Data as X
+import           Piano.Parser as X

@@ -13,24 +13,32 @@ description:           piano
 library
   build-depends:
                       base                            >= 3          && < 5
+                    , ambiata-anemone
                     , ambiata-p
+                    , ambiata-x-show
+                    , transformers                    >= 0.3        && < 0.6
+                    , bytestring                      == 0.10.*
                     , text                            == 1.2.*
+                    , thyme                           == 0.3.*
+                    , vector                          == 0.11.*
 
   ghc-options:
-                    -Wall
+                    -Wall -O2
 
   hs-source-dirs:
                     src
 
   exposed-modules:
                     Piano
+                    Piano.Data
+                    Piano.Parser
 
 executable piano
   ghc-options:
                     -Wall -threaded -O2
 
   hs-source-dirs:
-                    gen                    
+                    gen
 
   main-is:
                     ../main/piano.hs
@@ -39,9 +47,12 @@ executable piano
                       base
                     , ambiata-piano
                     , ambiata-p
+                    , ambiata-x-eithert
                     , ambiata-x-optparse
+                    , bytestring                      == 0.10.*
                     , optparse-applicative            >= 0.11 && < 0.13
                     , text
+                    , transformers                    >= 0.3        && < 0.6
 
 
 test-suite test
@@ -62,9 +73,13 @@ test-suite test
                     , ambiata-piano
                     , ambiata-disorder-core
                     , ambiata-disorder-corpus
+                    , ambiata-disorder-jack
                     , ambiata-p
+                    , bytestring                      == 0.10.*
                     , QuickCheck                      >= 2.8.2 && < 2.9
                     , quickcheck-instances            == 0.3.*
+                    , thyme                           == 0.3.*
+                    , vector                          == 0.11.*
 
 test-suite test-io
   type:
