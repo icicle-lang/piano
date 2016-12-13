@@ -3,8 +3,8 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TupleSections #-}
 module Piano.Foreign (
-    Piano(..)
-  , newPiano
+    ForeignPiano(..)
+  , newForeignPiano
 
   , CPiano(..)
   , withCPiano
@@ -43,8 +43,8 @@ import           Piano.Foreign.Bindings
 import           System.IO (IO)
 
 
-newtype Piano =
-  Piano {
+newtype ForeignPiano =
+  ForeignPiano {
       unPiano :: ForeignPtr C'piano
     }
 
@@ -53,7 +53,7 @@ newtype CPiano =
       unCPiano :: Ptr C'piano
     }
 
-instance NFData Piano where
+instance NFData ForeignPiano where
   rnf !_ =
     ()
 
@@ -173,29 +173,29 @@ freePiano pPiano = do
   free $ c'piano'time_sections piano
   free $ c'piano'time_data piano
 
-newPiano :: Map Entity (Set Day) -> IO Piano
-newPiano keys = do
+newForeignPiano :: Piano -> IO ForeignPiano
+newForeignPiano (Piano _ _ keys) = do
   ptr <- allocPiano keys
-  Piano <$> newForeignPtr ptr (freePiano ptr)
+  ForeignPiano <$> newForeignPtr ptr (freePiano ptr)
 
-withCPiano :: Piano -> (CPiano -> IO a) -> IO a
-withCPiano (Piano fp) io =
+withCPiano :: ForeignPiano -> (CPiano -> IO a) -> IO a
+withCPiano (ForeignPiano fp) io =
   withForeignPtr fp $ \ptr ->
     io (CPiano ptr)
 
 type ForeignLookup =
   Ptr C'piano -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> IO CError
 
-lookup :: Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
+lookup :: ForeignPiano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
 lookup =
   lookupWith unsafe'c'piano_lookup
 
-lookupBinary :: Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
+lookupBinary :: ForeignPiano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
 lookupBinary =
   lookupWith unsafe'c'piano_lookup_binary
 
-lookupWith :: ForeignLookup -> Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
-lookupWith c_lookup (Piano pfp) (PS nfp noff nlen) =
+lookupWith :: ForeignLookup -> ForeignPiano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
+lookupWith c_lookup (ForeignPiano pfp) (PS nfp noff nlen) =
   withForeignPtr pfp $ \pptr ->
   withForeignPtr nfp $ \nptr ->
   alloca $ \pcount ->

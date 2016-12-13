@@ -7,7 +7,7 @@ module Piano.Parser (
     ParserError(..)
   , renderParserError
 
-  , parseKeys
+  , parsePiano
   , parseKey
   , parseTime
 
@@ -24,7 +24,6 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as Char8
 import           Data.ByteString.Internal (ByteString(..))
 import qualified Data.ByteString.Unsafe as B
-import           Data.Map (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Set (Set)
 import qualified Data.Set as Set
@@ -49,6 +48,7 @@ data ParserError =
     ParserTimeError !TimeError
   | ParserTimeMissing !ByteString
   | ParserUnsupportedTimeFormat !ByteString
+  | ParserNoData
     deriving (Eq, Ord, Show)
 
 renderParserError :: ParserError -> Text
@@ -59,16 +59,18 @@ renderParserError = \case
     "Failed parsing row, time field missing: " <> T.decodeUtf8 bs
   ParserUnsupportedTimeFormat bs ->
     "Failed parsing row, unsupported time format: " <> T.decodeUtf8 bs
+  ParserNoData ->
+    "Failed parsing chord descriptor, the file was empty."
 
-parseKeys :: ByteString -> Either ParserError (Map Entity (Set Day))
-parseKeys bss0@(PS fp _ _) =
+parsePiano :: ByteString -> Either ParserError Piano
+parsePiano bss0@(PS fp _ _) =
   runST $ do
     u <- Grow.new 1024
 
     let
       loop bss1 =
         if B.null bss1 then
-          Right . fromUnboxedKeys fp <$> Grow.unsafeFreeze u
+          fromUnboxedKeys fp <$> Grow.unsafeFreeze u
         else
           let
             (bs, bss2) =
@@ -89,14 +91,29 @@ parseKeys bss0@(PS fp _ _) =
                 loop bss2
 
     loop bss0
-{-# INLINE parseKeys #-}
+{-# INLINE parsePiano #-}
 
-fromUnboxedKeys :: ForeignPtr Word8 -> Unboxed.Vector (Word32, Int, Int, Day) -> Map Entity (Set Day)
-fromUnboxedKeys fp =
-  Map.fromAscListWith Set.union .
-  fmap (fromUnboxedKey fp) .
-  Unboxed.toList .
-  sortUnboxedKeys fp
+fromUnboxedKeys :: ForeignPtr Word8 -> Unboxed.Vector (Word32, Int, Int, Day) -> Either ParserError Piano
+fromUnboxedKeys fp xs =
+  let
+    minTime =
+      Unboxed.minimum $
+      Unboxed.map (\(_, _, _, t) -> t) xs
+
+    maxTime =
+      Unboxed.maximum $
+      Unboxed.map (\(_, _, _, t) -> t) xs
+
+    entities =
+      Map.fromAscListWith Set.union .
+      fmap (fromUnboxedKey fp) .
+      Unboxed.toList $
+      sortUnboxedKeys fp xs
+  in
+    if Unboxed.null xs then
+      Left ParserNoData
+    else
+      Right $ Piano minTime maxTime entities
 {-# INLINE fromUnboxedKeys #-}
 
 fromUnboxedKey :: ForeignPtr Word8 -> (Word32, Int, Int, Day) -> (Entity, Set Day)

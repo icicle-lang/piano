@@ -93,15 +93,15 @@ run :: PianoCommand -> EitherT PianoError IO ()
 run = \case
   PianoCheck path -> do
     bs <- liftIO $ B.readFile path
-    _ <- firstT PianoParserError . hoistEither $ parseKeys bs
+    _ <- firstT PianoParserError . hoistEither $ parsePiano bs
     pure ()
   PianoLookup path -> do
     bs <- liftIO $ B.readFile path
-    keys <- firstT PianoParserError . hoistEither $ parseKeys bs
-    piano <- liftIO $ newPiano keys
+    piano <- firstT PianoParserError . hoistEither $ parsePiano bs
+    fpiano <- liftIO $ newForeignPiano piano
     lines <- liftIO $ fmap Lazy.toStrict . Lazy.lines <$> Lazy.getContents
     liftIO . for_ lines $ \entity -> do
-      mdays <- lookup piano entity
+      mdays <- lookup fpiano entity
       case mdays of
         Nothing ->
           putStrLn "<not found>"

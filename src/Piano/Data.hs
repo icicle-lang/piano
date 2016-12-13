@@ -2,7 +2,9 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 module Piano.Data (
-    Entity
+    Piano(..)
+
+  , Entity
   , mkEntity
   , unsafeMkEntity
   , entityHash
@@ -21,6 +23,8 @@ import           Anemone.Foreign.Hash (fasthash32')
 
 import qualified Data.ByteString as B
 import           Data.ByteString.Internal (ByteString(..))
+import           Data.Map (Map)
+import           Data.Set (Set)
 import           Data.Thyme (Day(..))
 import           Data.Thyme.Time (addDays, diffDays)
 import qualified Data.Vector as Boxed
@@ -39,6 +43,14 @@ import qualified Prelude as Savage
 import           System.IO.Unsafe (unsafePerformIO)
 
 import           X.Text.Show (gshowsPrec)
+
+
+data Piano =
+  Piano {
+      pianoMinTime :: !Day
+    , pianoMaxTime :: !Day
+    , pianoEntities :: !(Map Entity (Set Day))
+    } deriving (Eq, Ord, Show, Generic)
 
 data Entity =
   Entity {
@@ -84,6 +96,8 @@ instance Show Entity where
 instance Show Key where
   showsPrec =
     gshowsPrec
+
+instance NFData Piano
 
 instance NFData Entity
 
