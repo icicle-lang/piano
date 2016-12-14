@@ -6,7 +6,6 @@
 import qualified Data.ByteString.Char8 as Char8
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import           Data.Thyme (Day(..))
 
 import           Criterion.Main (Benchmark, env, bgroup, bench, nf, nfIO)
 import           Criterion.Main (defaultMainWith, defaultConfig)
@@ -51,7 +50,7 @@ mkEnv :: IO Env
 mkEnv = do
   let
     time =
-      ModifiedJulianDay 0
+      EndTime 0
 
     mkKey n =
       (entity n, Set.singleton time)

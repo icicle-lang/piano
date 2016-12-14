@@ -9,7 +9,6 @@ import           Disorder.Jack
 
 import           Data.ByteString (ByteString)
 import           Data.List.NonEmpty (NonEmpty(..))
-import           Data.Thyme (Day)
 import qualified Data.Vector.Unboxed as Unboxed
 
 import           P
@@ -22,7 +21,7 @@ import           System.IO (IO)
 import           Test.Piano.Jack
 
 
-law_lookup :: (ForeignPiano -> ByteString -> IO (Maybe (Unboxed.Vector Day))) -> Property
+law_lookup :: (ForeignPiano -> ByteString -> IO (Maybe (Unboxed.Vector EndTime))) -> Property
 law_lookup lookupFn =
   gamble jKey $ \k0@(Key e t) ->
   gamble (listOf jKey) $ \ks0 ->

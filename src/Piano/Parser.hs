@@ -9,11 +9,11 @@ module Piano.Parser (
 
   , parsePiano
   , parseKey
-  , parseTime
+  , parseEndTime
 
   , renderKeys
   , renderKey
-  , renderTime
+  , renderEndTime
   ) where
 
 import           Anemone.Parser (TimeError, renderTimeError, parseDay)
@@ -28,7 +28,6 @@ import qualified Data.Map.Strict as Map
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.Encoding as T
-import           Data.Thyme (Day)
 import           Data.Thyme.Time (toGregorian)
 import qualified Data.Vector.Unboxed as Unboxed
 import           Data.Word (Word8, Word32)
@@ -93,7 +92,7 @@ parsePiano bss0@(PS fp _ _) =
     loop bss0
 {-# INLINE parsePiano #-}
 
-fromUnboxedKeys :: ForeignPtr Word8 -> Unboxed.Vector (Word32, Int, Int, Day) -> Either ParserError Piano
+fromUnboxedKeys :: ForeignPtr Word8 -> Unboxed.Vector (Word32, Int, Int, EndTime) -> Either ParserError Piano
 fromUnboxedKeys fp xs =
   let
     minTime =
@@ -116,7 +115,7 @@ fromUnboxedKeys fp xs =
       Right $ Piano minTime maxTime entities
 {-# INLINE fromUnboxedKeys #-}
 
-fromUnboxedKey :: ForeignPtr Word8 -> (Word32, Int, Int, Day) -> (Entity, Set Day)
+fromUnboxedKey :: ForeignPtr Word8 -> (Word32, Int, Int, EndTime) -> (Entity, Set EndTime)
 fromUnboxedKey fp (hash, off, len, time) =
   (unsafeMkEntity hash $ PS fp off len, Set.singleton time)
 {-# INLINE fromUnboxedKey #-}
@@ -130,21 +129,21 @@ parseKey bs =
     if B.null time0 then
       Left $ ParserTimeMissing bs
     else do
-      !time <- parseTime time0
+      !time <- parseEndTime time0
       Right $ Key (mkEntity entity) time
 {-# INLINE parseKey #-}
 
-parseTime :: ByteString -> Either ParserError Day
-parseTime bs = do
+parseEndTime :: ByteString -> Either ParserError EndTime
+parseEndTime bs = do
   case parseDay bs of
     Left err ->
       Left $ ParserTimeError err
     Right (time, remains) ->
       if B.null remains then
-        Right time
+        Right $ fromInclusive time
       else
         Left $ ParserUnsupportedTimeFormat bs
-{-# INLINE parseTime #-}
+{-# INLINE parseEndTime #-}
 
 renderKeys :: [Key] -> ByteString
 renderKeys =
@@ -152,13 +151,14 @@ renderKeys =
 
 renderKey :: Key -> ByteString
 renderKey (Key e t) =
-  entityId e <> "|" <> renderTime t
+  entityId e <> "|" <> renderEndTime t
 
-renderTime :: Day -> ByteString
-renderTime day =
+renderEndTime :: EndTime -> ByteString
+renderEndTime time =
   let
     (y, m, d) =
-      toGregorian day
+      toGregorian $
+      fromExclusive time
   in
     Char8.pack $ printf "%04d-%02d-%02d" y m d
 

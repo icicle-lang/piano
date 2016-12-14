@@ -1,8 +1,17 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 module Piano.Data (
     Piano(..)
+
+  , EndTime(..)
+  , fromInclusive
+  , fromExclusive
+  , ivoryEpoch
 
   , Entity
   , mkEntity
@@ -13,10 +22,6 @@ module Piano.Data (
   , Key(..)
   , sortKeys
   , sortUnboxedKeys
-
-  , toIvorySeconds
-  , fromIvorySeconds
-  , ivoryEpoch
   ) where
 
 import           Anemone.Foreign.Hash (fasthash32')
@@ -30,6 +35,7 @@ import           Data.Thyme.Time (addDays, diffDays)
 import qualified Data.Vector as Boxed
 import qualified Data.Vector.Algorithms.AmericanFlag as American
 import qualified Data.Vector.Unboxed as Unboxed
+import           Data.Vector.Unboxed.Deriving (derivingUnbox)
 import           Data.Word (Word8, Word32)
 
 import           GHC.Generics (Generic)
@@ -47,10 +53,22 @@ import           X.Text.Show (gshowsPrec)
 
 data Piano =
   Piano {
-      pianoMinTime :: !Day
-    , pianoMaxTime :: !Day
-    , pianoEntities :: !(Map Entity (Set Day))
+      pianoMinTime :: !EndTime
+    , pianoMaxTime :: !EndTime
+    , pianoEntities :: !(Map Entity (Set EndTime))
     } deriving (Eq, Ord, Show, Generic)
+
+-- | A chord time range is a point in time which exclusively bounds the scope
+--   of facts we are interested in for a given entity.
+--
+--   Chord files are pairs of <entity>|<date> where the <date> is an inclusive
+--   bound on the scope of facts. So if we parse the date 2016-01-01, then the
+--   'EndTime' will be 2016-01-02 00:00:00.
+--
+newtype EndTime =
+  EndTime {
+      unEndTime :: Int64
+    } deriving (Eq, Ord, Generic)
 
 data Entity =
   Entity {
@@ -61,7 +79,7 @@ data Entity =
 data Key =
   Key {
       keyEntity :: !Entity
-    , keyTime :: !Day
+    , keyTime :: !EndTime
     } deriving (Eq, Ord, Generic)
 
 instance American.Lexicographic Key where
@@ -69,7 +87,7 @@ instance American.Lexicographic Key where
     -- Unforunately we can't write this in terms of the other instances, so we
     -- have to cheat and inline their implementations:
     --
-    --   n >= sizeof(entity hash) + sizeof(entity id) + sizeof(day)
+    --   n >= sizeof(entity hash) + sizeof(entity id) + sizeof(time)
     --
     n >= 4 + B.length bs + 8
   {-# INLINE terminate #-}
@@ -77,17 +95,21 @@ instance American.Lexicographic Key where
   size _ =
     American.size (Savage.undefined :: Word32) `max`
     American.size (Savage.undefined :: ByteString) `max`
-    American.size (Savage.undefined :: Int)
+    American.size (Savage.undefined :: Int64)
   {-# INLINE size #-}
 
-  index i (Key (Entity h e) t) =
+  index i (Key (Entity h e) (EndTime t)) =
     if i < 4 then
       American.index i h
     else if i < 4 + B.length e then
       American.index (i - 4) e
     else
-      American.index (i - 4 - B.length e) (toModifiedJulianDay t)
+      American.index (i - 4 - B.length e) t
   {-# INLINE index #-}
+
+instance Show EndTime where
+  showsPrec =
+    gshowsPrec
 
 instance Show Entity where
   showsPrec =
@@ -99,9 +121,16 @@ instance Show Key where
 
 instance NFData Piano
 
+instance NFData EndTime
+
 instance NFData Entity
 
 instance NFData Key
+
+derivingUnbox "EndTime"
+  [t| EndTime -> Int64 |]
+  [| unEndTime |]
+  [| EndTime |]
 
 sortKeys :: Boxed.Vector Key -> Boxed.Vector Key
 sortKeys keys =
@@ -112,26 +141,26 @@ sortKeys keys =
 
 sortUnboxedKeys ::
   ForeignPtr Word8 ->
-  Unboxed.Vector (Word32, Int, Int, Day) ->
-  Unboxed.Vector (Word32, Int, Int, Day)
+  Unboxed.Vector (Word32, Int, Int, EndTime) ->
+  Unboxed.Vector (Word32, Int, Int, EndTime)
 sortUnboxedKeys fp keys =
   unsafePerformIO $ do
     mkeys <- Unboxed.thaw keys
 
     let
-      cmp (hash0, off0, len0, day0) (hash1, off1, len1, day1) =
+      cmp (hash0, off0, len0, time0) (hash1, off1, len1, time1) =
         compare
-          (Key (Entity hash0 (PS fp off0 len0)) day0)
-          (Key (Entity hash1 (PS fp off1 len1)) day1)
+          (Key (Entity hash0 (PS fp off0 len0)) time0)
+          (Key (Entity hash1 (PS fp off1 len1)) time1)
 
-      terminate (hash, off, len, day) n =
-        American.terminate (Key (Entity hash (PS fp off len)) day) n
+      terminate (hash, off, len, time) n =
+        American.terminate (Key (Entity hash (PS fp off len)) time) n
 
       size =
-        American.size (Key (Entity 0 B.empty) ivoryEpoch)
+        American.size (Key (Entity 0 B.empty) (EndTime 0))
 
-      index i (hash, off, len, day) =
-        American.index i (Key (Entity hash (PS fp off len)) day)
+      index i (hash, off, len, time) =
+        American.index i (Key (Entity hash (PS fp off len)) time)
 
     American.sortBy cmp terminate size index mkeys
 
@@ -154,15 +183,27 @@ hashEntity =
   fasthash32' 0xd97ab4d1cade4055
 {-# INLINE hashEntity #-}
 
-toIvorySeconds :: Day -> Int64
-toIvorySeconds day =
-  fromIntegral $ (diffDays day ivoryEpoch) * 86400
-{-# INLINE toIvorySeconds #-}
+fromInclusive :: Day -> EndTime
+fromInclusive day =
+  let
+    !endDay =
+      addDays 1 day
+  in
+    EndTime . fromIntegral $
+      (diffDays endDay ivoryEpoch) * 86400
+{-# INLINE fromInclusive #-}
 
-fromIvorySeconds :: Int64 -> Day
-fromIvorySeconds time =
-  addDays (fromIntegral time `div` 86400) ivoryEpoch
-{-# INLINE fromIvorySeconds #-}
+fromExclusive :: EndTime -> Day
+fromExclusive (EndTime time) =
+  let
+    !endDays =
+      fromIntegral time `div` 86400
+
+    !days =
+      endDays - 1
+  in
+    addDays days ivoryEpoch
+{-# INLINE fromExclusive #-}
 
 ivoryEpoch :: Day
 ivoryEpoch =

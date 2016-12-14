@@ -12,7 +12,6 @@ import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map.Strict as Map
 import           Data.Set (Set)
 import qualified Data.Set as Set
-import           Data.Thyme (Day)
 import           Data.Thyme.Time (fromGregorian)
 import           Data.Word (Word8)
 
@@ -25,7 +24,7 @@ jKey :: Jack Key
 jKey =
   Key
     <$> jEntity
-    <*> jTime
+    <*> jEndTime
 
 jEntity :: Jack Entity
 jEntity =
@@ -49,14 +48,15 @@ pipe :: Word8
 pipe =
   0x7C -- '|'
 
-jTime :: Jack Day
-jTime =
+jEndTime :: Jack EndTime
+jEndTime =
+  fmap fromInclusive $
   fromGregorian
     <$> choose (1600, 3000)
     <*> choose (1, 12)
     <*> choose (1, 31)
 
-fromKey :: Key -> (Entity, Set Day)
+fromKey :: Key -> (Entity, Set EndTime)
 fromKey (Key e t) =
   (e, Set.singleton t)
 

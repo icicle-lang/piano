@@ -67,8 +67,8 @@ prop_tripping_key =
 
 prop_tripping_time :: Property
 prop_tripping_time =
-  gamble jTime $
-    tripping renderTime parseTime
+  gamble jEndTime $
+    tripping renderEndTime parseEndTime
 
 return []
 tests :: IO Bool

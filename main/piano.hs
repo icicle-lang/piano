@@ -8,11 +8,8 @@ import           DependencyInfo_ambiata_piano
 import           Control.Monad.IO.Class (liftIO)
 
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as Char8
 import qualified Data.ByteString.Lazy.Char8 as Lazy
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
-import           Data.Thyme (Day)
-import           Data.Thyme.Time (toGregorian)
 import qualified Data.Vector.Unboxed as Unboxed
 
 import           P
@@ -23,8 +20,6 @@ import           Piano.Parser
 import           System.IO (IO, FilePath, BufferMode(..))
 import           System.IO (hSetBuffering, stdout, stderr, putStrLn, print)
 import           System.Exit (exitSuccess)
-
-import           Text.Printf (printf)
 
 import           X.Control.Monad.Trans.Either (EitherT, hoistEither)
 import           X.Control.Monad.Trans.Either.Exit (orDie)
@@ -101,17 +96,9 @@ run = \case
     fpiano <- liftIO $ newForeignPiano piano
     lines <- liftIO $ fmap Lazy.toStrict . Lazy.lines <$> Lazy.getContents
     liftIO . for_ lines $ \entity -> do
-      mdays <- lookup fpiano entity
-      case mdays of
+      mEndTimes <- lookup fpiano entity
+      case mEndTimes of
         Nothing ->
           putStrLn "<not found>"
-        Just days ->
-          T.putStrLn . T.intercalate "|" . fmap renderDay $ Unboxed.toList days
-
-renderDay :: Day -> Text
-renderDay day =
-  let
-    (y, m, d) =
-      toGregorian day
-  in
-    T.pack $ printf "%04d-%02d-%02d" y m d
+        Just endTimes ->
+          Char8.putStrLn . Char8.intercalate "|" . fmap renderEndTime $ Unboxed.toList endTimes
