@@ -14,6 +14,7 @@ import qualified Data.Vector.Unboxed as Unboxed
 
 import           P
 
+import           Piano.Data
 import           Piano.Foreign
 import           Piano.Parser
 
@@ -101,4 +102,4 @@ run = \case
         Nothing ->
           putStrLn "<not found>"
         Just endTimes ->
-          Char8.putStrLn . Char8.intercalate "|" . fmap renderEndTime $ Unboxed.toList endTimes
+          Char8.putStrLn . Char8.intercalate "|" . fmap (renderDate . fromExclusive) $ Unboxed.toList endTimes

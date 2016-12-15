@@ -9,11 +9,11 @@ module Piano.Parser (
 
   , parsePiano
   , parseKey
-  , parseEndTime
+  , parseDate
 
   , renderKeys
   , renderKey
-  , renderEndTime
+  , renderDate
   ) where
 
 import           Anemone.Parser (TimeError, renderTimeError, parseDay)
@@ -28,6 +28,7 @@ import qualified Data.Map.Strict as Map
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.Encoding as T
+import           Data.Thyme (Day)
 import           Data.Thyme.Time (toGregorian)
 import qualified Data.Vector.Unboxed as Unboxed
 import           Data.Word (Word8, Word32)
@@ -129,21 +130,21 @@ parseKey bs =
     if B.null time0 then
       Left $ ParserTimeMissing bs
     else do
-      !time <- parseEndTime time0
+      !time <- fromInclusive <$> parseDate time0
       Right $ Key (mkEntity entity) time
 {-# INLINE parseKey #-}
 
-parseEndTime :: ByteString -> Either ParserError EndTime
-parseEndTime bs = do
+parseDate :: ByteString -> Either ParserError Day
+parseDate bs = do
   case parseDay bs of
     Left err ->
       Left $ ParserTimeError err
-    Right (time, remains) ->
+    Right (date, remains) ->
       if B.null remains then
-        Right $ fromInclusive time
+        Right date
       else
         Left $ ParserUnsupportedTimeFormat bs
-{-# INLINE parseEndTime #-}
+{-# INLINE parseDate #-}
 
 renderKeys :: [Key] -> ByteString
 renderKeys =
@@ -151,14 +152,13 @@ renderKeys =
 
 renderKey :: Key -> ByteString
 renderKey (Key e t) =
-  entityId e <> "|" <> renderEndTime t
+  entityId e <> "|" <> renderDate (fromExclusive t)
 
-renderEndTime :: EndTime -> ByteString
-renderEndTime time =
+renderDate :: Day -> ByteString
+renderDate date =
   let
     (y, m, d) =
-      toGregorian $
-      fromExclusive time
+      toGregorian date
   in
     Char8.pack $ printf "%04d-%02d-%02d" y m d
 

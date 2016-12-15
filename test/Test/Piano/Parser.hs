@@ -65,10 +65,10 @@ prop_tripping_key =
   gamble jKey $
     tripping renderKey parseKey
 
-prop_tripping_time :: Property
-prop_tripping_time =
-  gamble jEndTime $
-    tripping renderEndTime parseEndTime
+prop_tripping_date :: Property
+prop_tripping_date =
+  gamble (fromExclusive <$> jEndTime) $
+    tripping renderDate parseDate
 
 return []
 tests :: IO Bool
