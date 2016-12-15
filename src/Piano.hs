@@ -4,4 +4,5 @@ module Piano (
   ) where
 
 import           Piano.Data as X
+import           Piano.Foreign as X
 import           Piano.Parser as X

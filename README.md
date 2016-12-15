@@ -10,10 +10,10 @@ functionality to lookup the times associated with an entity.
 
 ## Chord Descriptor Format
 
-Unsorted, pipe-separated, entity and time.
+Unsorted, pipe-separated, entity and inclusive date.
 
 ```
-<entity>|<time>
+<entity>|<inclusive date>
 ```
 
 For example:
@@ -34,8 +34,11 @@ This library is primarily designed to be consumed from C using the following API
 //
 // Lookup an entity in the chord descriptor.
 //
-// If the entity is found, its array of chord times are returned, sorted
-// newest to oldest.
+// If the entity is found, its array of chord times are returned, sorted oldest
+// to newest. The times returned are an exclusive bound on the scope of the
+// chord query for the entity requested.
+//
+// Times are in seconds since 1600-03-01 (ivory epoch).
 //
 // If the entity is not found, the |out_count| will be set to 0.
 //

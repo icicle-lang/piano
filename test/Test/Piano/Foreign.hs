@@ -8,7 +8,7 @@ import           Disorder.Core.Run (ExpectedTestSpeed(..), disorderCheckEnvAll)
 import           Disorder.Jack
 
 import           Data.ByteString (ByteString)
-import           Data.Thyme (Day)
+import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Vector.Unboxed as Unboxed
 
 import           P
@@ -21,16 +21,16 @@ import           System.IO (IO)
 import           Test.Piano.Jack
 
 
-law_lookup :: (Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))) -> Property
+law_lookup :: (ForeignPiano -> ByteString -> IO (Maybe (Unboxed.Vector EndTime))) -> Property
 law_lookup lookupFn =
   gamble jKey $ \k0@(Key e t) ->
   gamble (listOf jKey) $ \ks0 ->
   testIO $ do
     let
       keys =
-        fromKeys (k0 : ks0)
+        fromKeys (k0 :| ks0)
 
-    piano <- newPiano keys
+    piano <- newForeignPiano keys
     mts <- lookupFn piano $ entityId e
 
     case mts of

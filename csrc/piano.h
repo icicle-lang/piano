@@ -25,6 +25,17 @@ typedef struct piano {
     int64_t *time_data;
 } piano_t;
 
+//
+// Lookup an entity in the chord descriptor.
+//
+// If the entity is found, its array of chord times are returned, sorted oldest
+// to newest. The times returned are an exclusive bound on the scope of the
+// chord query for the entity requested.
+//
+// Times are in seconds since 1600-03-01 (ivory epoch).
+//
+// If the entity is not found, the |out_count| will be set to 0.
+//
 error_t piano_lookup (
     piano_t *piano
   , const uint8_t *needle_id

@@ -7,13 +7,13 @@ module Piano.Parser (
     ParserError(..)
   , renderParserError
 
-  , parseKeys
+  , parsePiano
   , parseKey
-  , parseTime
+  , parseDate
 
   , renderKeys
   , renderKey
-  , renderTime
+  , renderDate
   ) where
 
 import           Anemone.Parser (TimeError, renderTimeError, parseDay)
@@ -24,7 +24,6 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as Char8
 import           Data.ByteString.Internal (ByteString(..))
 import qualified Data.ByteString.Unsafe as B
-import           Data.Map (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Set (Set)
 import qualified Data.Set as Set
@@ -49,6 +48,7 @@ data ParserError =
     ParserTimeError !TimeError
   | ParserTimeMissing !ByteString
   | ParserUnsupportedTimeFormat !ByteString
+  | ParserNoData
     deriving (Eq, Ord, Show)
 
 renderParserError :: ParserError -> Text
@@ -59,16 +59,18 @@ renderParserError = \case
     "Failed parsing row, time field missing: " <> T.decodeUtf8 bs
   ParserUnsupportedTimeFormat bs ->
     "Failed parsing row, unsupported time format: " <> T.decodeUtf8 bs
+  ParserNoData ->
+    "Failed parsing chord descriptor, the file was empty."
 
-parseKeys :: ByteString -> Either ParserError (Map Entity (Set Day))
-parseKeys bss0@(PS fp _ _) =
+parsePiano :: ByteString -> Either ParserError Piano
+parsePiano bss0@(PS fp _ _) =
   runST $ do
     u <- Grow.new 1024
 
     let
       loop bss1 =
         if B.null bss1 then
-          Right . fromUnboxedKeys fp <$> Grow.unsafeFreeze u
+          fromUnboxedKeys fp <$> Grow.unsafeFreeze u
         else
           let
             (bs, bss2) =
@@ -89,17 +91,32 @@ parseKeys bss0@(PS fp _ _) =
                 loop bss2
 
     loop bss0
-{-# INLINE parseKeys #-}
+{-# INLINE parsePiano #-}
 
-fromUnboxedKeys :: ForeignPtr Word8 -> Unboxed.Vector (Word32, Int, Int, Day) -> Map Entity (Set Day)
-fromUnboxedKeys fp =
-  Map.fromAscListWith Set.union .
-  fmap (fromUnboxedKey fp) .
-  Unboxed.toList .
-  sortUnboxedKeys fp
+fromUnboxedKeys :: ForeignPtr Word8 -> Unboxed.Vector (Word32, Int, Int, EndTime) -> Either ParserError Piano
+fromUnboxedKeys fp xs =
+  let
+    minTime =
+      Unboxed.minimum $
+      Unboxed.map (\(_, _, _, t) -> t) xs
+
+    maxTime =
+      Unboxed.maximum $
+      Unboxed.map (\(_, _, _, t) -> t) xs
+
+    entities =
+      Map.fromAscListWith Set.union .
+      fmap (fromUnboxedKey fp) .
+      Unboxed.toList $
+      sortUnboxedKeys fp xs
+  in
+    if Unboxed.null xs then
+      Left ParserNoData
+    else
+      Right $ Piano minTime maxTime entities
 {-# INLINE fromUnboxedKeys #-}
 
-fromUnboxedKey :: ForeignPtr Word8 -> (Word32, Int, Int, Day) -> (Entity, Set Day)
+fromUnboxedKey :: ForeignPtr Word8 -> (Word32, Int, Int, EndTime) -> (Entity, Set EndTime)
 fromUnboxedKey fp (hash, off, len, time) =
   (unsafeMkEntity hash $ PS fp off len, Set.singleton time)
 {-# INLINE fromUnboxedKey #-}
@@ -113,21 +130,21 @@ parseKey bs =
     if B.null time0 then
       Left $ ParserTimeMissing bs
     else do
-      !time <- parseTime time0
+      !time <- fromInclusive <$> parseDate time0
       Right $ Key (mkEntity entity) time
 {-# INLINE parseKey #-}
 
-parseTime :: ByteString -> Either ParserError Day
-parseTime bs = do
+parseDate :: ByteString -> Either ParserError Day
+parseDate bs = do
   case parseDay bs of
     Left err ->
       Left $ ParserTimeError err
-    Right (time, remains) ->
+    Right (date, remains) ->
       if B.null remains then
-        Right time
+        Right date
       else
         Left $ ParserUnsupportedTimeFormat bs
-{-# INLINE parseTime #-}
+{-# INLINE parseDate #-}
 
 renderKeys :: [Key] -> ByteString
 renderKeys =
@@ -135,13 +152,13 @@ renderKeys =
 
 renderKey :: Key -> ByteString
 renderKey (Key e t) =
-  entityId e <> "|" <> renderTime t
+  entityId e <> "|" <> renderDate (fromExclusive t)
 
-renderTime :: Day -> ByteString
-renderTime day =
+renderDate :: Day -> ByteString
+renderDate date =
   let
     (y, m, d) =
-      toGregorian day
+      toGregorian date
   in
     Char8.pack $ printf "%04d-%02d-%02d" y m d
 

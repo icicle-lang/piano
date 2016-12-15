@@ -9,7 +9,6 @@ import           Disorder.Jack
 import qualified Data.ByteString as B
 import           Data.ByteString.Internal (ByteString(..))
 import qualified Data.List as List
-import           Data.Thyme (Day)
 import qualified Data.Vector as Boxed
 import qualified Data.Vector.Unboxed as Unboxed
 import           Data.Word (Word8, Word32)
@@ -25,7 +24,7 @@ import           System.IO (IO)
 import           Test.Piano.Jack
 
 
-fromUnboxedKeys :: ForeignPtr Word8 -> Unboxed.Vector (Word32, Int, Int, Day) -> [Key]
+fromUnboxedKeys :: ForeignPtr Word8 -> Unboxed.Vector (Word32, Int, Int, EndTime) -> [Key]
 fromUnboxedKeys fp keys =
   let
     fromUnboxed (hash, off, len, time) =
@@ -34,7 +33,7 @@ fromUnboxedKeys fp keys =
     fmap fromUnboxed $
     Unboxed.toList keys
 
-toUnboxedKeys :: [Key] -> (ForeignPtr Word8, Unboxed.Vector (Word32, Int, Int, Day))
+toUnboxedKeys :: [Key] -> (ForeignPtr Word8, Unboxed.Vector (Word32, Int, Int, EndTime))
 toUnboxedKeys keys =
   let
     PS fp off _ =

@@ -3,8 +3,8 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TupleSections #-}
 module Piano.Foreign (
-    Piano(..)
-  , newPiano
+    ForeignPiano(..)
+  , newForeignPiano
 
   , CPiano(..)
   , withCPiano
@@ -24,7 +24,6 @@ import           Data.Map (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Set (Set)
 import qualified Data.Set as Set
-import           Data.Thyme (Day(..))
 import qualified Data.Vector.Storable as Storable
 import qualified Data.Vector.Unboxed as Unboxed
 import           Data.Word (Word8, Word32)
@@ -43,8 +42,8 @@ import           Piano.Foreign.Bindings
 import           System.IO (IO)
 
 
-newtype Piano =
-  Piano {
+newtype ForeignPiano =
+  ForeignPiano {
       unPiano :: ForeignPtr C'piano
     }
 
@@ -53,7 +52,7 @@ newtype CPiano =
       unCPiano :: Ptr C'piano
     }
 
-instance NFData Piano where
+instance NFData ForeignPiano where
   rnf !_ =
     ()
 
@@ -135,11 +134,11 @@ allocTimeSections tss =
   in
     newArray $ List.zipWith C'piano_section32 offsets lengths
 
-allocTimeData :: [Set Int64] -> IO (Ptr Int64)
+allocTimeData :: [Set EndTime] -> IO (Ptr Int64)
 allocTimeData =
-  newArray . concatMap Set.toList
+  newArray . fmap unEndTime . concatMap Set.toList
 
-allocPiano :: Map Entity (Set Day) -> IO (Ptr C'piano)
+allocPiano :: Map Entity (Set EndTime) -> IO (Ptr C'piano)
 allocPiano entities = do
   pPiano <- malloc
   pBuckets <- allocBuckets . fmap entityHash $ Map.keys entities
@@ -147,7 +146,7 @@ allocPiano entities = do
   pIdSections <- allocIdSections . fmap entityId $ Map.keys entities
   pIdData <- allocIdData . fmap entityId $ Map.keys entities
   pTimeSections <- allocTimeSections $ Map.elems entities
-  pTimeData <- allocTimeData . fmap (Set.mapMonotonic toIvorySeconds) $ Map.elems entities
+  pTimeData <- allocTimeData $ Map.elems entities
 
   poke pPiano C'piano {
       c'piano'buckets = pBuckets
@@ -173,29 +172,29 @@ freePiano pPiano = do
   free $ c'piano'time_sections piano
   free $ c'piano'time_data piano
 
-newPiano :: Map Entity (Set Day) -> IO Piano
-newPiano keys = do
+newForeignPiano :: Piano -> IO ForeignPiano
+newForeignPiano (Piano _ _ keys) = do
   ptr <- allocPiano keys
-  Piano <$> newForeignPtr ptr (freePiano ptr)
+  ForeignPiano <$> newForeignPtr ptr (freePiano ptr)
 
-withCPiano :: Piano -> (CPiano -> IO a) -> IO a
-withCPiano (Piano fp) io =
+withCPiano :: ForeignPiano -> (CPiano -> IO a) -> IO a
+withCPiano (ForeignPiano fp) io =
   withForeignPtr fp $ \ptr ->
     io (CPiano ptr)
 
 type ForeignLookup =
   Ptr C'piano -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> IO CError
 
-lookup :: Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
+lookup :: ForeignPiano -> ByteString -> IO (Maybe (Unboxed.Vector EndTime))
 lookup =
   lookupWith unsafe'c'piano_lookup
 
-lookupBinary :: Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
+lookupBinary :: ForeignPiano -> ByteString -> IO (Maybe (Unboxed.Vector EndTime))
 lookupBinary =
   lookupWith unsafe'c'piano_lookup_binary
 
-lookupWith :: ForeignLookup -> Piano -> ByteString -> IO (Maybe (Unboxed.Vector Day))
-lookupWith c_lookup (Piano pfp) (PS nfp noff nlen) =
+lookupWith :: ForeignLookup -> ForeignPiano -> ByteString -> IO (Maybe (Unboxed.Vector EndTime))
+lookupWith c_lookup (ForeignPiano pfp) (PS nfp noff nlen) =
   withForeignPtr pfp $ \pptr ->
   withForeignPtr nfp $ \nptr ->
   alloca $ \pcount ->
@@ -211,7 +210,7 @@ lookupWith c_lookup (Piano pfp) (PS nfp noff nlen) =
       let
         -- force the evaluation as 'ptimes' won't exist when we return
         !times =
-          Unboxed.map fromIvorySeconds .
+          Unboxed.map EndTime .
           Unboxed.convert $
           Storable.unsafeFromForeignPtr0 fptimes time_count
 

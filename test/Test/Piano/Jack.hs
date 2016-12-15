@@ -7,11 +7,11 @@ import           Disorder.Corpus (muppets)
 import           Disorder.Jack
 
 import qualified Data.ByteString as B
-import           Data.Map (Map)
+import           Data.Foldable (minimum, maximum)
+import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map.Strict as Map
 import           Data.Set (Set)
 import qualified Data.Set as Set
-import           Data.Thyme (Day)
 import           Data.Thyme.Time (fromGregorian)
 import           Data.Word (Word8)
 
@@ -24,7 +24,7 @@ jKey :: Jack Key
 jKey =
   Key
     <$> jEntity
-    <*> jTime
+    <*> jEndTime
 
 jEntity :: Jack Entity
 jEntity =
@@ -48,22 +48,34 @@ pipe :: Word8
 pipe =
   0x7C -- '|'
 
-jTime :: Jack Day
-jTime =
+jEndTime :: Jack EndTime
+jEndTime =
+  fmap fromInclusive $
   fromGregorian
     <$> choose (1600, 3000)
     <*> choose (1, 12)
     <*> choose (1, 31)
 
-fromKey :: Key -> (Entity, Set Day)
+fromKey :: Key -> (Entity, Set EndTime)
 fromKey (Key e t) =
   (e, Set.singleton t)
 
-fromKeys :: [Key] -> Map Entity (Set Day)
-fromKeys =
-  Map.fromListWith Set.union . fmap fromKey 
+fromKeys :: NonEmpty Key -> Piano
+fromKeys ks =
+  let
+    minTime =
+      minimum $ fmap keyTime ks
 
-toKeys :: Map Entity (Set Day) -> [Key]
+    maxTime =
+      maximum $ fmap keyTime ks
+
+    entities =
+      Map.fromListWith Set.union . toList $ fmap fromKey ks
+  in
+    Piano minTime maxTime entities
+
+toKeys :: Piano -> [Key]
 toKeys =
   concatMap (\(e, ts) -> fmap (Key e) $ Set.toList ts) .
-  Map.toList
+  Map.toList .
+  pianoEntities
