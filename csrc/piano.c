@@ -7,6 +7,7 @@
 #endif
 
 #include "piano.h"
+#include "piano_internal.h"
 
 // NOTE: This is duplicated in Piano.Data, be sure to update
 // NOTE: it there too if you change this.
@@ -68,6 +69,24 @@ int64_t * piano_section32_int64_start (piano_section32_t section, int64_t *data)
     return data + section.offset;
 }
 
+int64_t piano_min_time (piano_ptr_t piano_ptr)
+{
+    piano_t *piano = piano_ptr;
+    return piano->min_time;
+}
+
+int64_t piano_max_time (piano_ptr_t piano_ptr)
+{
+    piano_t *piano = piano_ptr;
+    return piano->max_time;
+}
+
+int64_t piano_max_count (piano_ptr_t piano_ptr)
+{
+    piano_t *piano = piano_ptr;
+    return piano->max_count;
+}
+
 error_t piano_lookup_binary (
     piano_t *piano
   , const uint8_t *needle_id
@@ -127,13 +146,15 @@ error_t piano_lookup_binary (
 }
 
 error_t piano_lookup (
-    piano_t *piano
+    piano_ptr_t piano_ptr
   , const uint8_t *needle_id
   , size_t needle_id_size
   , int64_t *out_count
   , const int64_t **out_times
   )
 {
+    piano_t *piano = piano_ptr;
+
     uint32_t needle_hash = piano_hash (needle_id, needle_id_size);
 
     piano_section32_t *buckets = piano->buckets;

@@ -56,7 +56,7 @@ mkEnv = do
       (entity n, Set.singleton time)
 
     piano =
-      Piano time time .
+      Piano time time 1 .
       Map.fromAscList $
       fmap mkKey [0..entityCount - 1]
 

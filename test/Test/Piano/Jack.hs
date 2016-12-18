@@ -40,6 +40,10 @@ jEntityChar =
     b /= pipe &&
     b /= feed
 
+jPiano :: Jack Piano
+jPiano =
+  fromKeys <$> listOf1 jKey
+
 feed :: Word8
 feed =
   0x0A -- '\n'
@@ -69,10 +73,13 @@ fromKeys ks =
     maxTime =
       maximum $ fmap keyTime ks
 
+    maxCount =
+      maximum . fmap length $ Map.elems entities
+
     entities =
       Map.fromListWith Set.union . toList $ fmap fromKey ks
   in
-    Piano minTime maxTime entities
+    Piano minTime maxTime maxCount entities
 
 toKeys :: Piano -> [Key]
 toKeys =

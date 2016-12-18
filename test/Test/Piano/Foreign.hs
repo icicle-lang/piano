@@ -52,6 +52,39 @@ prop_lookup_binary :: Property
 prop_lookup_binary =
   law_lookup lookupBinary
 
+prop_get_min_time :: Property
+prop_get_min_time =
+  gamble jPiano $ \piano ->
+  testIO $ do
+    foreign <- newForeignPiano piano
+    foreignMinTime <- getMinTime foreign
+    pure $
+      pianoMinTime piano
+      ===
+      foreignMinTime
+
+prop_get_max_time :: Property
+prop_get_max_time =
+  gamble jPiano $ \piano ->
+  testIO $ do
+    foreign <- newForeignPiano piano
+    foreignMaxTime <- getMaxTime foreign
+    pure $
+      pianoMaxTime piano
+      ===
+      foreignMaxTime
+
+prop_get_max_count :: Property
+prop_get_max_count =
+  gamble jPiano $ \piano ->
+  testIO $ do
+    foreign <- newForeignPiano piano
+    foreignMaxCount <- getMaxCount foreign
+    pure $
+      pianoMaxCount piano
+      ===
+      foreignMaxCount
+
 return []
 tests :: IO Bool
 tests =

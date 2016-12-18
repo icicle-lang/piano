@@ -53,8 +53,16 @@ import           X.Text.Show (gshowsPrec)
 
 data Piano =
   Piano {
+    -- | The earliest chord time across all of the entities.
       pianoMinTime :: !EndTime
+
+    -- | The latest chord time across all of the entities.
     , pianoMaxTime :: !EndTime
+
+    -- | The maximum number of chord times associated with any given entity.
+    , pianoMaxCount :: !Int
+
+    -- | The chord times we need to query for each entity.
     , pianoEntities :: !(Map Entity (Set EndTime))
     } deriving (Eq, Ord, Show, Generic)
 

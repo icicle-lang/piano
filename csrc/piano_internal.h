@@ -3,6 +3,28 @@
 
 #include "piano.h"
 
+typedef struct piano_section32 {
+    int32_t offset;
+    int32_t length;
+} piano_section32_t;
+
+typedef struct piano {
+    int64_t min_time;
+    int64_t max_time;
+    int32_t max_count;
+
+    piano_section32_t *buckets;
+
+    int32_t count;
+    uint32_t *hashes;
+
+    piano_section32_t *id_sections;
+    uint8_t *id_data;
+
+    piano_section32_t *time_sections;
+    int64_t *time_data;
+} piano_t;
+
 error_t piano_lookup_binary (
     piano_t *piano
   , const uint8_t *entity_id

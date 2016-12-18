@@ -7,7 +7,7 @@ import           Disorder.Core.Run (ExpectedTestSpeed(..), disorderCheckEnvAll)
 import           Disorder.Either (testEither)
 import           Disorder.Jack
 
-import qualified Data.List as List
+import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 
@@ -28,22 +28,23 @@ prop_parse_keys_valid_map =
     testEither renderParserError $ do
       let
         keys0 =
-          k0 : ks0
+          k0 :| ks0
 
-        minTime0 =
-          List.minimum $ fmap keyTime keys0
+        piano0 =
+          fromKeys keys0
 
-        maxTime0 =
-          List.maximum $ fmap keyTime keys0
-
-      Piano minTime maxTime ks <- parsePiano $ renderKeys keys0
+      Piano minTime maxTime maxCount ks <-
+        parsePiano . renderKeys $ toList keys0
 
       pure $ conjoin [
           counterexample "Minimum time was incorrect" $
-            minTime0 === minTime
+            pianoMinTime piano0 === minTime
 
         , counterexample "Maximum time was incorrect" $
-            maxTime0 === maxTime
+            pianoMaxTime piano0 === maxTime
+
+        , counterexample "Maximum count was incorrect" $
+            pianoMaxCount piano0 === maxCount
 
         , case Map.lookup e ks of
             Nothing ->
