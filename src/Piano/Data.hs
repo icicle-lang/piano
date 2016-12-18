@@ -7,6 +7,7 @@
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 module Piano.Data (
     Piano(..)
+  , fromKeys
 
   , EndTime(..)
   , fromInclusive
@@ -28,8 +29,12 @@ import           Anemone.Foreign.Hash (fasthash32')
 
 import qualified Data.ByteString as B
 import           Data.ByteString.Internal (ByteString(..))
+import qualified Data.Foldable as Foldable
+import           Data.List.NonEmpty (NonEmpty)
 import           Data.Map (Map)
+import qualified Data.Map as Map
 import           Data.Set (Set)
+import qualified Data.Set as Set
 import           Data.Thyme (Day(..))
 import           Data.Thyme.Time (addDays, diffDays)
 import qualified Data.Vector as Boxed
@@ -173,6 +178,27 @@ sortUnboxedKeys fp keys =
     American.sortBy cmp terminate size index mkeys
 
     Unboxed.unsafeFreeze mkeys
+
+fromKey :: Key -> (Entity, Set EndTime)
+fromKey (Key e t) =
+  (e, Set.singleton t)
+
+fromKeys :: NonEmpty Key -> Piano
+fromKeys ks =
+  let
+    minTime =
+      Foldable.minimum $ fmap keyTime ks
+
+    maxTime =
+      Foldable.maximum $ fmap keyTime ks
+
+    maxCount =
+      Foldable.maximum . fmap length $ Map.elems entities
+
+    entities =
+      Map.fromListWith Set.union . toList $ fmap fromKey ks
+  in
+    Piano minTime maxTime maxCount entities
 
 mkEntity :: ByteString -> Entity
 mkEntity bs =
