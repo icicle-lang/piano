@@ -8,7 +8,7 @@ typedef struct piano_section32 {
     int32_t length;
 } piano_section32_t;
 
-typedef struct piano {
+struct piano {
     int64_t min_time;
     int64_t max_time;
     int32_t max_count;
@@ -23,7 +23,7 @@ typedef struct piano {
 
     piano_section32_t *time_sections;
     int64_t *time_data;
-} piano_t;
+};
 
 error_t piano_lookup_binary (
     piano_t *piano

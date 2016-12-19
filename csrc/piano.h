@@ -8,22 +8,22 @@
 #endif
 
 //
-// Pointer to an abstract piano_t data structure.
+// Abstract piano_t data structure.
 //
-typedef void * piano_ptr_t;
+typedef struct piano piano_t;
 
 //
 // Returns the earliest chord time across all of the entities.
 //
 int64_t piano_min_time (
-    piano_ptr_t piano
+    piano_t *piano
   );
 
 //
 // Returns the latest chord time across all of the entities.
 //
 int64_t piano_max_time (
-    piano_ptr_t piano
+    piano_t *piano
   );
 
 //
@@ -34,7 +34,7 @@ int64_t piano_max_time (
 // every entity.
 //
 int64_t piano_max_count (
-    piano_ptr_t piano
+    piano_t *piano
   );
 
 //
@@ -49,7 +49,7 @@ int64_t piano_max_count (
 // If the entity is not found, the |out_count| will be set to 0.
 //
 error_t piano_lookup (
-    piano_ptr_t piano
+    piano_t *piano
   , const uint8_t *needle_id
   , size_t needle_id_size
   , int64_t *out_count
