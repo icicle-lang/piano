@@ -24,6 +24,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as Char8
 import           Data.ByteString.Internal (ByteString(..))
 import qualified Data.ByteString.Unsafe as B
+import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import           Data.Set (Set)
 import qualified Data.Set as Set
@@ -104,6 +105,11 @@ fromUnboxedKeys fp xs =
       Unboxed.maximum $
       Unboxed.map (\(_, _, _, t) -> t) xs
 
+    maxCount =
+      List.maximum .
+      fmap List.length $
+      Map.elems entities
+
     entities =
       Map.fromAscListWith Set.union .
       fmap (fromUnboxedKey fp) .
@@ -113,7 +119,7 @@ fromUnboxedKeys fp xs =
     if Unboxed.null xs then
       Left ParserNoData
     else
-      Right $ Piano minTime maxTime entities
+      Right $ Piano minTime maxTime maxCount entities
 {-# INLINE fromUnboxedKeys #-}
 
 fromUnboxedKey :: ForeignPtr Word8 -> (Word32, Int, Int, EndTime) -> (Entity, Set EndTime)

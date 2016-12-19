@@ -7,23 +7,35 @@
 #include "../lib/anemone/csrc/anemone_base.h"
 #endif
 
-typedef struct piano_section32 {
-    int32_t offset;
-    int32_t length;
-} piano_section32_t;
+//
+// Abstract piano_t data structure.
+//
+typedef struct piano piano_t;
 
-typedef struct piano {
-    piano_section32_t *buckets;
+//
+// Returns the earliest chord time across all of the entities.
+//
+int64_t piano_min_time (
+    piano_t *piano
+  );
 
-    int32_t count;
-    uint32_t *hashes;
+//
+// Returns the latest chord time across all of the entities.
+//
+int64_t piano_max_time (
+    piano_t *piano
+  );
 
-    piano_section32_t *id_sections;
-    uint8_t *id_data;
-
-    piano_section32_t *time_sections;
-    int64_t *time_data;
-} piano_t;
+//
+// Returns the maximum number of chord times associated with any given entity.
+//
+// This can be useful if you're processing queries on a per entity basis and
+// would like to pre-allocate some data structures which you will reuse for
+// every entity.
+//
+int64_t piano_max_count (
+    piano_t *piano
+  );
 
 //
 // Lookup an entity in the chord descriptor.

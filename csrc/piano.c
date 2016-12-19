@@ -7,6 +7,7 @@
 #endif
 
 #include "piano.h"
+#include "piano_internal.h"
 
 // NOTE: This is duplicated in Piano.Data, be sure to update
 // NOTE: it there too if you change this.
@@ -66,6 +67,21 @@ ANEMONE_INLINE
 int64_t * piano_section32_int64_start (piano_section32_t section, int64_t *data)
 {
     return data + section.offset;
+}
+
+int64_t piano_min_time (piano_t *piano)
+{
+    return piano->min_time;
+}
+
+int64_t piano_max_time (piano_t *piano)
+{
+    return piano->max_time;
+}
+
+int64_t piano_max_count (piano_t *piano)
+{
+    return piano->max_count;
 }
 
 error_t piano_lookup_binary (

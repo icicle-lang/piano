@@ -7,6 +7,7 @@
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 module Piano.Data (
     Piano(..)
+  , fromKeys
 
   , EndTime(..)
   , fromInclusive
@@ -28,8 +29,12 @@ import           Anemone.Foreign.Hash (fasthash32')
 
 import qualified Data.ByteString as B
 import           Data.ByteString.Internal (ByteString(..))
+import qualified Data.Foldable as Foldable
+import           Data.List.NonEmpty (NonEmpty)
 import           Data.Map (Map)
+import qualified Data.Map as Map
 import           Data.Set (Set)
+import qualified Data.Set as Set
 import           Data.Thyme (Day(..))
 import           Data.Thyme.Time (addDays, diffDays)
 import qualified Data.Vector as Boxed
@@ -53,8 +58,16 @@ import           X.Text.Show (gshowsPrec)
 
 data Piano =
   Piano {
+    -- | The earliest chord time across all of the entities.
       pianoMinTime :: !EndTime
+
+    -- | The latest chord time across all of the entities.
     , pianoMaxTime :: !EndTime
+
+    -- | The maximum number of chord times associated with any given entity.
+    , pianoMaxCount :: !Int
+
+    -- | The chord times we need to query for each entity.
     , pianoEntities :: !(Map Entity (Set EndTime))
     } deriving (Eq, Ord, Show, Generic)
 
@@ -165,6 +178,27 @@ sortUnboxedKeys fp keys =
     American.sortBy cmp terminate size index mkeys
 
     Unboxed.unsafeFreeze mkeys
+
+fromKey :: Key -> (Entity, Set EndTime)
+fromKey (Key e t) =
+  (e, Set.singleton t)
+
+fromKeys :: NonEmpty Key -> Piano
+fromKeys ks =
+  let
+    minTime =
+      Foldable.minimum $ fmap keyTime ks
+
+    maxTime =
+      Foldable.maximum $ fmap keyTime ks
+
+    maxCount =
+      Foldable.maximum . fmap length $ Map.elems entities
+
+    entities =
+      Map.fromListWith Set.union . toList $ fmap fromKey ks
+  in
+    Piano minTime maxTime maxCount entities
 
 mkEntity :: ByteString -> Entity
 mkEntity bs =

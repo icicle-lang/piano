@@ -7,10 +7,7 @@ import           Disorder.Corpus (muppets)
 import           Disorder.Jack
 
 import qualified Data.ByteString as B
-import           Data.Foldable (minimum, maximum)
-import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map.Strict as Map
-import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.Thyme.Time (fromGregorian)
 import           Data.Word (Word8)
@@ -40,6 +37,10 @@ jEntityChar =
     b /= pipe &&
     b /= feed
 
+jPiano :: Jack Piano
+jPiano =
+  fromKeys <$> listOf1 jKey
+
 feed :: Word8
 feed =
   0x0A -- '\n'
@@ -55,24 +56,6 @@ jEndTime =
     <$> choose (1600, 3000)
     <*> choose (1, 12)
     <*> choose (1, 31)
-
-fromKey :: Key -> (Entity, Set EndTime)
-fromKey (Key e t) =
-  (e, Set.singleton t)
-
-fromKeys :: NonEmpty Key -> Piano
-fromKeys ks =
-  let
-    minTime =
-      minimum $ fmap keyTime ks
-
-    maxTime =
-      maximum $ fmap keyTime ks
-
-    entities =
-      Map.fromListWith Set.union . toList $ fmap fromKey ks
-  in
-    Piano minTime maxTime entities
 
 toKeys :: Piano -> [Key]
 toKeys =

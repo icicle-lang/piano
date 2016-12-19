@@ -11,6 +11,10 @@ module Piano.Foreign (
 
   , lookup
   , lookupBinary
+
+  , getMinTime
+  , getMaxTime
+  , getMaxCount
   ) where
 
 import           Anemone.Foreign.Data (CError(..), CSize(..))
@@ -138,8 +142,8 @@ allocTimeData :: [Set EndTime] -> IO (Ptr Int64)
 allocTimeData =
   newArray . fmap unEndTime . concatMap Set.toList
 
-allocPiano :: Map Entity (Set EndTime) -> IO (Ptr C'piano)
-allocPiano entities = do
+allocPiano :: Piano -> IO (Ptr C'piano)
+allocPiano (Piano minTime maxTime maxCount entities) = do
   pPiano <- malloc
   pBuckets <- allocBuckets . fmap entityHash $ Map.keys entities
   pHashes <- newArray . fmap entityHash $ Map.keys entities
@@ -149,7 +153,10 @@ allocPiano entities = do
   pTimeData <- allocTimeData $ Map.elems entities
 
   poke pPiano C'piano {
-      c'piano'buckets = pBuckets
+      c'piano'min_time = unEndTime minTime
+    , c'piano'max_time = unEndTime maxTime
+    , c'piano'max_count = fromIntegral maxCount
+    , c'piano'buckets = pBuckets
     , c'piano'count = fromIntegral (Map.size entities)
     , c'piano'hashes = pHashes
     , c'piano'id_sections = pIdSections
@@ -173,8 +180,8 @@ freePiano pPiano = do
   free $ c'piano'time_data piano
 
 newForeignPiano :: Piano -> IO ForeignPiano
-newForeignPiano (Piano _ _ keys) = do
-  ptr <- allocPiano keys
+newForeignPiano piano = do
+  ptr <- allocPiano piano
   ForeignPiano <$> newForeignPtr ptr (freePiano ptr)
 
 withCPiano :: ForeignPiano -> (CPiano -> IO a) -> IO a
@@ -218,3 +225,18 @@ lookupWith c_lookup (ForeignPiano pfp) (PS nfp noff nlen) =
     else
       pure Nothing
 {-# INLINE lookupWith #-}
+
+getMinTime :: ForeignPiano -> IO EndTime
+getMinTime fp =
+  fmap EndTime . withCPiano fp $
+    unsafe'c'piano_min_time . unCPiano
+
+getMaxTime :: ForeignPiano -> IO EndTime
+getMaxTime fp =
+  fmap EndTime . withCPiano fp $
+    unsafe'c'piano_max_time . unCPiano
+
+getMaxCount :: ForeignPiano -> IO Int
+getMaxCount fp =
+  fmap fromIntegral . withCPiano fp $
+    unsafe'c'piano_max_count . unCPiano
