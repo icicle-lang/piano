@@ -14,6 +14,8 @@ module Piano.Data (
   , fromExclusive
   , ivoryEpoch
 
+  , Label(..)
+
   , Entity
   , mkEntity
   , unsafeMkEntity
@@ -68,7 +70,7 @@ data Piano =
     , pianoMaxCount :: !Int
 
     -- | The chord times we need to query for each entity.
-    , pianoEntities :: !(Map Entity (Set EndTime))
+    , pianoEntities :: !(Map Entity (Set Label))
     } deriving (Eq, Ord, Show, Generic)
 
 -- | A chord time range is a point in time which exclusively bounds the scope
@@ -83,6 +85,12 @@ newtype EndTime =
       unEndTime :: Int64
     } deriving (Eq, Ord, Generic)
 
+data Label =
+  Label {
+      labelTime :: !EndTime
+    , labelName :: !ByteString
+    } deriving (Eq, Ord, Generic)
+
 data Entity =
   Entity {
       entityHash :: !Word32
@@ -92,17 +100,17 @@ data Entity =
 data Key =
   Key {
       keyEntity :: !Entity
-    , keyTime :: !EndTime
+    , keyLabel :: !Label
     } deriving (Eq, Ord, Generic)
 
 instance American.Lexicographic Key where
-  terminate (Key (Entity _ bs) _) n =
+  terminate (Key (Entity _ eid) (Label _ lb)) n =
     -- Unforunately we can't write this in terms of the other instances, so we
     -- have to cheat and inline their implementations:
     --
-    --   n >= sizeof(entity hash) + sizeof(entity id) + sizeof(time)
+    --   n >= sizeof(entity hash) + sizeof(entity id) + sizeof(label time) + sizeof(label name)
     --
-    n >= 4 + B.length bs + 8
+    n >= 4 + B.length eid + 8 + B.length lb
   {-# INLINE terminate #-}
 
   size _ =
@@ -111,16 +119,22 @@ instance American.Lexicographic Key where
     American.size (Savage.undefined :: Int64)
   {-# INLINE size #-}
 
-  index i (Key (Entity h e) (EndTime t)) =
+  index i (Key (Entity h e) (Label (EndTime t) l)) =
     if i < 4 then
       American.index i h
     else if i < 4 + B.length e then
       American.index (i - 4) e
-    else
+    else if i < 4 + B.length e + 8 then
       American.index (i - 4 - B.length e) t
+    else
+      American.index (i - 4 - B.length e - 8) l
   {-# INLINE index #-}
 
 instance Show EndTime where
+  showsPrec =
+    gshowsPrec
+
+instance Show Label where
   showsPrec =
     gshowsPrec
 
@@ -135,6 +149,8 @@ instance Show Key where
 instance NFData Piano
 
 instance NFData EndTime
+
+instance NFData Label
 
 instance NFData Entity
 
@@ -154,32 +170,32 @@ sortKeys keys =
 
 sortUnboxedKeys ::
   ForeignPtr Word8 ->
-  Unboxed.Vector (Word32, Int, Int, EndTime) ->
-  Unboxed.Vector (Word32, Int, Int, EndTime)
+  Unboxed.Vector (Word32, Int, Int, EndTime, Int, Int) ->
+  Unboxed.Vector (Word32, Int, Int, EndTime, Int, Int)
 sortUnboxedKeys fp keys =
   unsafePerformIO $ do
     mkeys <- Unboxed.thaw keys
 
     let
-      cmp (hash0, off0, len0, time0) (hash1, off1, len1, time1) =
+      cmp (hash0, eoff0, elen0, time0, loff0, llen0) (hash1, eoff1, elen1, time1, loff1, llen1) =
         compare
-          (Key (Entity hash0 (PS fp off0 len0)) time0)
-          (Key (Entity hash1 (PS fp off1 len1)) time1)
+          (Key (Entity hash0 (PS fp eoff0 elen0)) (Label time0 (PS fp loff0 llen0)))
+          (Key (Entity hash1 (PS fp eoff1 elen1)) (Label time1 (PS fp loff1 llen1)))
 
-      terminate (hash, off, len, time) n =
-        American.terminate (Key (Entity hash (PS fp off len)) time) n
+      terminate (hash, eoff, elen, time, loff, llen) n =
+        American.terminate (Key (Entity hash (PS fp eoff elen)) (Label time (PS fp loff llen))) n
 
       size =
-        American.size (Key (Entity 0 B.empty) (EndTime 0))
+        American.size (Key (Entity 0 B.empty) (Label (EndTime 0) B.empty))
 
-      index i (hash, off, len, time) =
-        American.index i (Key (Entity hash (PS fp off len)) time)
+      index i (hash, eoff, elen, time, loff, llen) =
+        American.index i (Key (Entity hash (PS fp eoff elen)) (Label time (PS fp loff llen)))
 
     American.sortBy cmp terminate size index mkeys
 
     Unboxed.unsafeFreeze mkeys
 
-fromKey :: Key -> (Entity, Set EndTime)
+fromKey :: Key -> (Entity, Set Label)
 fromKey (Key e t) =
   (e, Set.singleton t)
 
@@ -187,10 +203,10 @@ fromKeys :: NonEmpty Key -> Piano
 fromKeys ks =
   let
     minTime =
-      Foldable.minimum $ fmap keyTime ks
+      Foldable.minimum $ fmap (labelTime . keyLabel) ks
 
     maxTime =
-      Foldable.maximum $ fmap keyTime ks
+      Foldable.maximum $ fmap (labelTime . keyLabel) ks
 
     maxCount =
       Foldable.maximum . fmap length $ Map.elems entities

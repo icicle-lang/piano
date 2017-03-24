@@ -53,7 +53,7 @@ mkEnv = do
       EndTime 0
 
     mkKey n =
-      (entity n, Set.singleton time)
+      (entity n, Set.singleton (Label time . Char8.pack $ show time))
 
     piano =
       Piano time time 1 .

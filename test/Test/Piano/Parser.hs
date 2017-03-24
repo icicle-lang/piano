@@ -23,8 +23,8 @@ import           Test.Piano.Jack
 
 prop_parse_keys_valid_map :: Property
 prop_parse_keys_valid_map =
-  gamble jKey $ \k0@(Key e t) ->
-  gamble (listOf jKey) $ \ks0 ->
+  gamble jDateKey $ \k0@(Key e t) ->
+  gamble (listOf jDateKey) $ \ks0 ->
     testEither renderParserError $ do
       let
         keys0 =
@@ -34,7 +34,7 @@ prop_parse_keys_valid_map =
           fromKeys keys0
 
       Piano minTime maxTime maxCount ks <-
-        parsePiano . renderKeys $ toList keys0
+        parsePiano . renderInclusiveKeys $ toList keys0
 
       pure $ conjoin [
           counterexample "Minimum time was incorrect" $
@@ -58,13 +58,13 @@ prop_parse_keys_valid_map =
 
 prop_tripping_keys :: Property
 prop_tripping_keys =
-  gamble (fromKeys <$> listOf1 jKey) $
-    tripping (renderKeys . toKeys) parsePiano
+  gamble (fromKeys <$> listOf1 jDateKey) $
+    tripping (renderInclusiveKeys . toKeys) parsePiano
 
 prop_tripping_key :: Property
 prop_tripping_key =
-  gamble jKey $
-    tripping renderKey parseKey
+  gamble jDateKey $
+    tripping renderInclusiveKey parseKey
 
 prop_tripping_date :: Property
 prop_tripping_date =

@@ -10,7 +10,7 @@ import           Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as Char8
 import qualified Data.ByteString.Lazy.Char8 as Lazy
-import qualified Data.Vector.Unboxed as Unboxed
+import qualified Data.Vector as Boxed
 
 import           P
 
@@ -102,4 +102,4 @@ run = \case
         Nothing ->
           putStrLn "<not found>"
         Just endTimes ->
-          Char8.putStrLn . Char8.intercalate "|" . fmap (renderDate . fromExclusive) $ Unboxed.toList endTimes
+          Char8.putStrLn . Char8.intercalate "|" . fmap (renderDate . fromExclusive . labelTime) $ Boxed.toList endTimes

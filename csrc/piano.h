@@ -40,9 +40,9 @@ int64_t piano_max_count (
 //
 // Lookup an entity in the chord descriptor.
 //
-// If the entity is found, its array of chord times are returned, sorted oldest
-// to newest. The times returned are an exclusive bound on the scope of the
-// chord query for the entity requested.
+// If the entity is found, its array of labeled chord times are returned,
+// sorted oldest to newest. The times returned are an exclusive bound on the
+// scope of the chord query for the entity requested.
 //
 // Times are in seconds since 1600-03-01 (ivory epoch).
 //
@@ -53,7 +53,10 @@ error_t piano_lookup (
   , const uint8_t *needle_id
   , size_t needle_id_size
   , int64_t *out_count
-  , const int64_t **out_times
+  , const int64_t **out_label_times
+  , const int64_t **out_label_name_offsets
+  , const int64_t **out_label_name_lengths
+  , const uint8_t **out_label_name_data
   );
 
 #endif//__PIANO_H
