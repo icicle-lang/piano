@@ -6,7 +6,7 @@ module Test.Piano.Data where
 import           Disorder.Core.Run (ExpectedTestSpeed(..), disorderCheckEnvAll)
 import           Disorder.Jack
 
-import qualified Data.ByteString as B
+import qualified Data.ByteString as ByteString
 import           Data.ByteString.Internal (ByteString(..))
 import qualified Data.List as List
 import qualified Data.Vector as Boxed
@@ -24,36 +24,48 @@ import           System.IO (IO)
 import           Test.Piano.Jack
 
 
-fromUnboxedKeys :: ForeignPtr Word8 -> Unboxed.Vector (Word32, Int, Int, EndTime) -> [Key]
+fromUnboxedKeys :: ForeignPtr Word8 -> Unboxed.Vector (Word32, Int, Int, EndTime, Int, Int) -> [Key]
 fromUnboxedKeys fp keys =
   let
-    fromUnboxed (hash, off, len, time) =
-      Key (unsafeMkEntity hash $ PS fp off len) time
+    fromUnboxed (hash, eoff, elen, time, loff, llen) =
+      Key (unsafeMkEntity hash $ PS fp eoff elen) (Label time $ PS fp loff llen)
   in
     fmap fromUnboxed $
     Unboxed.toList keys
 
-toUnboxedKeys :: [Key] -> (ForeignPtr Word8, Unboxed.Vector (Word32, Int, Int, EndTime))
+toUnboxedKeys :: [Key] -> (ForeignPtr Word8, Unboxed.Vector (Word32, Int, Int, EndTime, Int, Int))
 toUnboxedKeys keys =
   let
+    entities =
+      ByteString.concat $ fmap (entityId . keyEntity) keys
+
+    labels =
+      ByteString.concat $ fmap (labelName . keyLabel) keys
+
     PS fp off _ =
-      B.concat $
+      entities <> labels
+
+    elengths =
+      fmap (fromIntegral . ByteString.length) $
       fmap (entityId . keyEntity) keys
 
-    lengths =
-      fmap (fromIntegral . B.length) $
-      fmap (entityId . keyEntity) keys
-
-    offsets =
-      List.scanl' (+) off lengths
+    eoffsets =
+      List.scanl' (+) off elengths
 
     hashes =
       fmap (entityHash . keyEntity) keys
 
     times =
-      fmap keyTime keys
+      fmap (labelTime . keyLabel) keys
+
+    llengths =
+      fmap (fromIntegral . ByteString.length) $
+      fmap (labelName . keyLabel) keys
+
+    loffsets =
+      List.scanl' (+) (off + ByteString.length entities) llengths
   in
-    (fp, Unboxed.fromList $ List.zip4 hashes offsets lengths times)
+    (fp, Unboxed.fromList $ List.zip6 hashes eoffsets elengths times loffsets llengths)
 
 prop_sort_keys :: Property
 prop_sort_keys =

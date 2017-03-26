@@ -9,7 +9,7 @@ import           Disorder.Jack
 
 import           Data.ByteString (ByteString)
 import           Data.List.NonEmpty (NonEmpty(..))
-import qualified Data.Vector.Unboxed as Unboxed
+import qualified Data.Vector as Boxed
 
 import           P
 
@@ -21,15 +21,11 @@ import           System.IO (IO)
 import           Test.Piano.Jack
 
 
-law_lookup :: (ForeignPiano -> ByteString -> IO (Maybe (Unboxed.Vector EndTime))) -> Property
+law_lookup :: (ForeignPiano -> ByteString -> IO (Maybe (Boxed.Vector Label))) -> Property
 law_lookup lookupFn =
-  gamble jKey $ \k0@(Key e t) ->
-  gamble (listOf jKey) $ \ks0 ->
+  gamble jKey $ \k0@(Key e l) ->
+  gamble (fromKeys . (k0 :|) <$> listOf jKey) $ \keys ->
   testIO $ do
-    let
-      keys =
-        fromKeys (k0 :| ks0)
-
     piano <- newForeignPiano keys
     mts <- lookupFn piano $ entityId e
 
@@ -41,8 +37,8 @@ law_lookup lookupFn =
       Just ts ->
         pure .
           counterexample ("Found entity: " <> show (e, ts)) $
-          counterexample ("Time was missing: " <> show t) $
-          Unboxed.elem t ts
+          counterexample ("Label was missing: " <> show l) $
+          Boxed.elem l ts
 
 prop_lookup :: Property
 prop_lookup =

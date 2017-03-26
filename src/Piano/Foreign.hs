@@ -20,16 +20,16 @@ module Piano.Foreign (
 import           Anemone.Foreign.Data (CError(..), CSize(..))
 
 import           Data.Bits (shiftR)
-import qualified Data.ByteString as B
+import qualified Data.ByteString as ByteString
 import           Data.ByteString.Internal (ByteString(..))
-import qualified Data.ByteString.Internal as B
+import qualified Data.ByteString.Internal as ByteString
 import qualified Data.List as List
 import           Data.Map (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Set (Set)
 import qualified Data.Set as Set
+import qualified Data.Vector as Boxed
 import qualified Data.Vector.Storable as Storable
-import qualified Data.Vector.Unboxed as Unboxed
 import           Data.Word (Word8, Word32)
 
 import           Foreign.Concurrent (newForeignPtr)
@@ -103,32 +103,32 @@ allocBuckets hs =
   in
     newArray $ List.zipWith C'piano_section32 offsets lengths
 
-allocIdSections :: [ByteString] -> IO (Ptr C'piano_section32)
-allocIdSections bss =
+allocStringSections :: [ByteString] -> IO (Ptr C'piano_section32)
+allocStringSections bss =
   let
     lengths =
-      fmap (fromIntegral . B.length) bss
+      fmap (fromIntegral . ByteString.length) bss
 
     offsets =
       List.scanl' (+) 0 lengths
   in
     newArray $ List.zipWith C'piano_section32 offsets lengths
 
-allocIdData :: [ByteString] -> IO (Ptr Word8)
-allocIdData bss = do
+allocStringData :: [ByteString] -> IO (Ptr Word8)
+allocStringData bss = do
   let
     PS fp off len =
-      B.concat bss
+      ByteString.concat bss
 
   dst <- mallocBytes len
 
   withForeignPtr fp $ \src ->
-    B.memcpy (dst `plusPtr` off) src len
+    ByteString.memcpy (dst `plusPtr` off) src len
 
   pure dst
 
-allocTimeSections :: [Set a] -> IO (Ptr C'piano_section32)
-allocTimeSections tss =
+allocaLabelSections :: [Set a] -> IO (Ptr C'piano_section32)
+allocaLabelSections tss =
   let
     lengths =
       fmap (fromIntegral . Set.size) tss
@@ -138,19 +138,34 @@ allocTimeSections tss =
   in
     newArray $ List.zipWith C'piano_section32 offsets lengths
 
-allocTimeData :: [Set EndTime] -> IO (Ptr Int64)
-allocTimeData =
-  newArray . fmap unEndTime . concatMap Set.toList
+allocLabelTimeData :: [Set Label] -> IO (Ptr Int64)
+allocLabelTimeData =
+  newArray . fmap (unEndTime . labelTime) . concatMap Set.toList
+
+allocLabelNameOffsets :: [Set Label] -> IO (Ptr Int64)
+allocLabelNameOffsets =
+  newArray . List.scanl' (+) 0 . fmap (fromIntegral . ByteString.length . labelName) . concatMap Set.toList
+
+allocLabelNameLengths :: [Set Label] -> IO (Ptr Int64)
+allocLabelNameLengths =
+  newArray . fmap (fromIntegral . ByteString.length . labelName) . concatMap Set.toList
+
+allocLabelNameData :: [Set Label] -> IO (Ptr Word8)
+allocLabelNameData =
+  allocStringData . fmap labelName . concatMap Set.toList
 
 allocPiano :: Piano -> IO (Ptr C'piano)
 allocPiano (Piano minTime maxTime maxCount entities) = do
   pPiano <- malloc
   pBuckets <- allocBuckets . fmap entityHash $ Map.keys entities
   pHashes <- newArray . fmap entityHash $ Map.keys entities
-  pIdSections <- allocIdSections . fmap entityId $ Map.keys entities
-  pIdData <- allocIdData . fmap entityId $ Map.keys entities
-  pTimeSections <- allocTimeSections $ Map.elems entities
-  pTimeData <- allocTimeData $ Map.elems entities
+  pIdSections <- allocStringSections . fmap entityId $ Map.keys entities
+  pIdData <- allocStringData . fmap entityId $ Map.keys entities
+  pLabelSections <- allocaLabelSections $ Map.elems entities
+  pLabelTimeData <- allocLabelTimeData $ Map.elems entities
+  pLabelNameOffsets <- allocLabelNameOffsets $ Map.elems entities
+  pLabelNameLengths <- allocLabelNameLengths $ Map.elems entities
+  pLabelNameData <- allocLabelNameData $ Map.elems entities
 
   poke pPiano C'piano {
       c'piano'min_time = unEndTime minTime
@@ -161,8 +176,11 @@ allocPiano (Piano minTime maxTime maxCount entities) = do
     , c'piano'hashes = pHashes
     , c'piano'id_sections = pIdSections
     , c'piano'id_data = pIdData
-    , c'piano'time_sections = pTimeSections
-    , c'piano'time_data = pTimeData
+    , c'piano'label_sections = pLabelSections
+    , c'piano'label_time_data = pLabelTimeData
+    , c'piano'label_name_offsets = pLabelNameOffsets
+    , c'piano'label_name_lengths = pLabelNameLengths
+    , c'piano'label_name_data = pLabelNameData
     }
 
   pure pPiano
@@ -176,8 +194,11 @@ freePiano pPiano = do
   free $ c'piano'hashes piano
   free $ c'piano'id_sections piano
   free $ c'piano'id_data piano
-  free $ c'piano'time_sections piano
-  free $ c'piano'time_data piano
+  free $ c'piano'label_sections piano
+  free $ c'piano'label_time_data piano
+  free $ c'piano'label_name_offsets piano
+  free $ c'piano'label_name_lengths piano
+  free $ c'piano'label_name_data piano
 
 newForeignPiano :: Piano -> IO ForeignPiano
 newForeignPiano piano = do
@@ -190,38 +211,61 @@ withCPiano (ForeignPiano fp) io =
     io (CPiano ptr)
 
 type ForeignLookup =
-  Ptr C'piano -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> IO CError
+  Ptr C'piano -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> Ptr (Ptr Int64) -> Ptr (Ptr Int64) -> Ptr (Ptr Word8) -> IO CError
 
-lookup :: ForeignPiano -> ByteString -> IO (Maybe (Unboxed.Vector EndTime))
+lookup :: ForeignPiano -> ByteString -> IO (Maybe (Boxed.Vector Label))
 lookup =
   lookupWith unsafe'c'piano_lookup
 
-lookupBinary :: ForeignPiano -> ByteString -> IO (Maybe (Unboxed.Vector EndTime))
+lookupBinary :: ForeignPiano -> ByteString -> IO (Maybe (Boxed.Vector Label))
 lookupBinary =
   lookupWith unsafe'c'piano_lookup_binary
 
-lookupWith :: ForeignLookup -> ForeignPiano -> ByteString -> IO (Maybe (Unboxed.Vector EndTime))
+lookupWith :: ForeignLookup -> ForeignPiano -> ByteString -> IO (Maybe (Boxed.Vector Label))
 lookupWith c_lookup (ForeignPiano pfp) (PS nfp noff nlen) =
   withForeignPtr pfp $ \pptr ->
   withForeignPtr nfp $ \nptr ->
   alloca $ \pcount ->
-  alloca $ \pptimes -> do
-    err <- c_lookup pptr (nptr `plusPtr` noff) (fromIntegral nlen) pcount pptimes
+  alloca $ \pptimes ->
+  alloca $ \ppoffsets ->
+  alloca $ \pplengths ->
+  alloca $ \ppnames -> do
+    err <- c_lookup pptr (nptr `plusPtr` noff) (fromIntegral nlen) pcount pptimes ppoffsets pplengths ppnames
 
-    time_count <- fromIntegral <$> peek pcount
+    label_count <- fromIntegral <$> peek pcount
 
-    if err == 0 && time_count /= 0 then do
+    if err == 0 && label_count /= 0 then do
       ptimes <- peek pptimes
       fptimes <- newForeignPtr_ ptimes
 
-      let
-        -- force the evaluation as 'ptimes' won't exist when we return
-        !times =
-          Unboxed.map EndTime .
-          Unboxed.convert $
-          Storable.unsafeFromForeignPtr0 fptimes time_count
+      poffsets <- peek ppoffsets
+      fpoffsets <- newForeignPtr_ poffsets
 
-      pure $ Just times
+      plengths <- peek pplengths
+      fplengths <- newForeignPtr_ plengths
+
+      pnames <- peek ppnames
+      fpnames <- newForeignPtr_ pnames
+
+      let
+        times =
+          Boxed.map EndTime .  Boxed.convert $ Storable.unsafeFromForeignPtr0 fptimes label_count
+
+        offsets =
+          Boxed.convert $ Storable.unsafeFromForeignPtr0 fpoffsets label_count
+
+        lengths =
+          Boxed.convert $ Storable.unsafeFromForeignPtr0 fplengths label_count
+
+        names =
+          Boxed.map ByteString.copy $
+          Boxed.zipWith (\off len -> PS fpnames (fromIntegral off) (fromIntegral len)) offsets lengths
+
+        -- force the evaluation as the pointers won't exist when we return
+        !labels =
+          Boxed.zipWith Label times names
+
+      pure $ Just labels
     else
       pure Nothing
 {-# INLINE lookupWith #-}

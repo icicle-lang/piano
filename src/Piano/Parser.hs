@@ -11,8 +11,8 @@ module Piano.Parser (
   , parseKey
   , parseDate
 
-  , renderKeys
-  , renderKey
+  , renderInclusiveKeys
+  , renderInclusiveKey
   , renderDate
   ) where
 
@@ -80,30 +80,33 @@ parsePiano bss0@(PS fp _ _) =
             case parseKey bs of
               Left err ->
                 pure $ Left err
-              Right (Key entity time) -> do
+              Right (Key entity (Label time label)) -> do
                 let
                   hash =
                     entityHash entity
 
-                  PS _ off len =
+                  PS _ eoff elen =
                     entityId entity
 
-                Grow.add u (hash, off, len, time)
+                  PS _ loff llen =
+                    label
+
+                Grow.add u (hash, eoff, elen, time, loff, llen)
                 loop bss2
 
     loop bss0
 {-# INLINE parsePiano #-}
 
-fromUnboxedKeys :: ForeignPtr Word8 -> Unboxed.Vector (Word32, Int, Int, EndTime) -> Either ParserError Piano
+fromUnboxedKeys :: ForeignPtr Word8 -> Unboxed.Vector (Word32, Int, Int, EndTime, Int, Int) -> Either ParserError Piano
 fromUnboxedKeys fp xs =
   let
     minTime =
       Unboxed.minimum $
-      Unboxed.map (\(_, _, _, t) -> t) xs
+      Unboxed.map (\(_, _, _, t, _, _) -> t) xs
 
     maxTime =
       Unboxed.maximum $
-      Unboxed.map (\(_, _, _, t) -> t) xs
+      Unboxed.map (\(_, _, _, t, _, _) -> t) xs
 
     maxCount =
       List.maximum .
@@ -122,9 +125,9 @@ fromUnboxedKeys fp xs =
       Right $ Piano minTime maxTime maxCount entities
 {-# INLINE fromUnboxedKeys #-}
 
-fromUnboxedKey :: ForeignPtr Word8 -> (Word32, Int, Int, EndTime) -> (Entity, Set EndTime)
-fromUnboxedKey fp (hash, off, len, time) =
-  (unsafeMkEntity hash $ PS fp off len, Set.singleton time)
+fromUnboxedKey :: ForeignPtr Word8 -> (Word32, Int, Int, EndTime, Int, Int) -> (Entity, Set Label)
+fromUnboxedKey fp (hash, eoff, elen, time, loff, llen) =
+  (unsafeMkEntity hash $ PS fp eoff elen, Set.singleton . Label time $ PS fp loff llen)
 {-# INLINE fromUnboxedKey #-}
 
 parseKey :: ByteString -> Either ParserError Key
@@ -137,7 +140,7 @@ parseKey bs =
       Left $ ParserTimeMissing bs
     else do
       !time <- fromInclusive <$> parseDate time0
-      Right $ Key (mkEntity entity) time
+      Right $ Key (mkEntity entity) (Label time time0)
 {-# INLINE parseKey #-}
 
 parseDate :: ByteString -> Either ParserError Day
@@ -152,12 +155,12 @@ parseDate bs = do
         Left $ ParserUnsupportedTimeFormat bs
 {-# INLINE parseDate #-}
 
-renderKeys :: [Key] -> ByteString
-renderKeys =
-  Char8.unlines . fmap renderKey
+renderInclusiveKeys :: [Key] -> ByteString
+renderInclusiveKeys =
+  Char8.unlines . fmap renderInclusiveKey
 
-renderKey :: Key -> ByteString
-renderKey (Key e t) =
+renderInclusiveKey :: Key -> ByteString
+renderInclusiveKey (Key e (Label t _)) =
   entityId e <> "|" <> renderDate (fromExclusive t)
 
 renderDate :: Day -> ByteString

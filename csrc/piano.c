@@ -9,6 +9,8 @@
 #include "piano.h"
 #include "piano_internal.h"
 
+#include <stdio.h>
+
 // NOTE: This is duplicated in Piano.Data, be sure to update
 // NOTE: it there too if you change this.
 static const uint64_t piano_seed = 0xd97ab4d1cade4055;
@@ -89,7 +91,10 @@ error_t piano_lookup_binary (
   , const uint8_t *needle_id
   , size_t needle_id_size
   , int64_t *out_count
-  , const int64_t **out_times
+  , const int64_t **out_label_times
+  , const int64_t **out_label_name_offsets
+  , const int64_t **out_label_name_lengths
+  , const uint8_t **out_label_name_data
   )
 {
     uint32_t needle_hash = piano_hash (needle_id, needle_id_size);
@@ -100,8 +105,11 @@ error_t piano_lookup_binary (
     piano_section32_t *id_sections = piano->id_sections;
     uint8_t *id_data = piano->id_data;
 
-    piano_section32_t *time_sections = piano->time_sections;
-    int64_t *time_data = piano->time_data;
+    piano_section32_t *label_sections = piano->label_sections;
+    int64_t *label_time_data = piano->label_time_data;
+    int64_t *label_name_offsets = piano->label_name_offsets;
+    int64_t *label_name_lengths = piano->label_name_lengths;
+    uint8_t *label_name_data = piano->label_name_data;
 
     int32_t lo = 0;
     int32_t hi = count - 1;
@@ -111,7 +119,7 @@ error_t piano_lookup_binary (
 
         uint32_t hash = hashes[m];
         piano_section32_t id_section = id_sections[m];
-        piano_section32_t time_section = time_sections[m];
+        piano_section32_t label_section = label_sections[m];
 
         int64_t cmp = piano_compare (
             needle_hash
@@ -123,8 +131,11 @@ error_t piano_lookup_binary (
           );
 
         if (cmp == 0) {
-            *out_count = time_section.length;
-            *out_times = piano_section32_int64_start (time_section, time_data);
+            *out_count = label_section.length;
+            *out_label_times = piano_section32_int64_start (label_section, label_time_data);
+            *out_label_name_offsets = piano_section32_int64_start (label_section, label_name_offsets);
+            *out_label_name_lengths = piano_section32_int64_start (label_section, label_name_lengths);
+            *out_label_name_data = label_name_data;
             return 0;
         }
 
@@ -136,7 +147,10 @@ error_t piano_lookup_binary (
 
         if (lo > hi) {
             *out_count = 0;
-            *out_times = NULL;
+            *out_label_times = NULL;
+            *out_label_name_offsets = NULL;
+            *out_label_name_lengths = NULL;
+            *out_label_name_data = NULL;
             return 0;
         }
     }
@@ -147,7 +161,10 @@ error_t piano_lookup (
   , const uint8_t *needle_id
   , size_t needle_id_size
   , int64_t *out_count
-  , const int64_t **out_times
+  , const int64_t **out_label_times
+  , const int64_t **out_label_name_offsets
+  , const int64_t **out_label_name_lengths
+  , const uint8_t **out_label_name_data
   )
 {
     uint32_t needle_hash = piano_hash (needle_id, needle_id_size);
@@ -163,8 +180,11 @@ error_t piano_lookup (
     piano_section32_t *id_sections = piano->id_sections + offset;
     uint8_t *id_data = piano->id_data;
 
-    piano_section32_t *time_sections = piano->time_sections + offset;
-    int64_t *time_data = piano->time_data;
+    piano_section32_t *label_sections = piano->label_sections + offset;
+    int64_t *label_time_data = piano->label_time_data;
+    int64_t *label_name_offsets = piano->label_name_offsets;
+    int64_t *label_name_lengths = piano->label_name_lengths;
+    uint8_t *label_name_data = piano->label_name_data;
 
     int32_t lo = 0;
     int32_t hi = count - 1;
@@ -185,10 +205,13 @@ error_t piano_lookup (
           );
 
         if (cmp == 0) {
-            piano_section32_t time_section = time_sections[m];
+            piano_section32_t label_section = label_sections[m];
 
-            *out_count = time_section.length;
-            *out_times = piano_section32_int64_start (time_section, time_data);
+            *out_count = label_section.length;
+            *out_label_times = piano_section32_int64_start (label_section, label_time_data);
+            *out_label_name_offsets = piano_section32_int64_start (label_section, label_name_offsets);
+            *out_label_name_lengths = piano_section32_int64_start (label_section, label_name_lengths);
+            *out_label_name_data = label_name_data;
 
             return 0;
         }
@@ -201,7 +224,10 @@ error_t piano_lookup (
 
         if (lo > hi) {
             *out_count = 0;
-            *out_times = NULL;
+            *out_label_times = NULL;
+            *out_label_name_offsets = NULL;
+            *out_label_name_lengths = NULL;
+            *out_label_name_data = NULL;
             return 0;
         }
     }

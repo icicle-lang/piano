@@ -32,12 +32,15 @@ import Anemone.Foreign.Data (CError(..))
 #field hashes , Ptr Word32
 #field id_sections , Ptr <piano_section32>
 #field id_data , Ptr Word8
-#field time_sections , Ptr <piano_section32>
-#field time_data , Ptr Int64
+#field label_sections, Ptr <piano_section32>
+#field label_time_data , Ptr Int64
+#field label_name_offsets , Ptr Int64
+#field label_name_lengths , Ptr Int64
+#field label_name_data , Ptr Word8
 #stoptype
 
 #ccall_unsafe piano_min_time , Ptr <piano> -> IO Int64
 #ccall_unsafe piano_max_time , Ptr <piano> -> IO Int64
 #ccall_unsafe piano_max_count , Ptr <piano> -> IO Int64
-#ccall_unsafe piano_lookup , Ptr <piano> -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> IO CError
-#ccall_unsafe piano_lookup_binary , Ptr <piano> -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> IO CError
+#ccall_unsafe piano_lookup , Ptr <piano> -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> Ptr (Ptr Int64) -> Ptr (Ptr Int64) -> Ptr (Ptr Word8) -> IO CError
+#ccall_unsafe piano_lookup_binary , Ptr <piano> -> Ptr Word8 -> CSize -> Ptr Int64 -> Ptr (Ptr Int64) -> Ptr (Ptr Int64) -> Ptr (Ptr Int64) -> Ptr (Ptr Word8) -> IO CError
