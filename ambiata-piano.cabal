@@ -1,6 +1,6 @@
 name:                  ambiata-piano
 version:               0.0.1
-license:               BSD3
+license:               AllRightsReserved
 author:                Ambiata <info@ambiata.com>
 maintainer:            Ambiata <info@ambiata.com>
 copyright:             (c) 2015 Ambiata.
@@ -28,8 +28,10 @@ library
                     , text                            == 1.2.*
                     , thyme                           == 0.3.*
                     , transformers                    >= 0.3        && < 0.6
-                    , vector                          == 0.11.*
-                    , vector-algorithms               == 0.7.*
+                    , vector                          >= 0.11       && < 0.13
+                    -- Didn't follow the PVP and changed their class for
+                    -- American.Lexicographic
+                    , vector-algorithms               == 0.7.0.1
                     , vector-th-unbox                 == 0.2.*
 
   ghc-options:
@@ -60,7 +62,7 @@ library
                     csrc/piano.c
 
   cc-options:
-                    -std=c99 -O3 -msse4.2 -Wall -Werror -DCABAL=1
+                    -std=c99 -O3 -msse4.2 -Wall -Werror -Wno-unused-command-line-argument -DCABAL=1
 
 executable piano
   ghc-options:
@@ -78,12 +80,12 @@ executable piano
                     , ambiata-p
                     , ambiata-x-eithert
                     , ambiata-x-optparse
-                    , bytestring                      == 0.10.*
-                    , optparse-applicative            >= 0.11       && < 0.13
+                    , bytestring
+                    , optparse-applicative
                     , text
-                    , thyme                           == 0.3.*
-                    , transformers                    >= 0.3        && < 0.6
-                    , vector                          == 0.11.*
+                    , thyme
+                    , transformers
+                    , vector
 
 benchmark piano-bench
   type:
@@ -99,14 +101,14 @@ benchmark piano-bench
                     bench
 
   build-depends:
-                      base                            >= 3          && < 5
+                      base
                     , ambiata-piano
                     , ambiata-p
-                    , bytestring                      == 0.10.*
-                    , containers                      == 0.5.*
-                    , criterion                       == 1.1.*
-                    , thyme                           == 0.3.*
-                    , vector                          == 0.11.*
+                    , bytestring
+                    , containers
+                    , criterion
+                    , thyme
+                    , vector
 
 test-suite test
   type:
@@ -122,20 +124,20 @@ test-suite test
                     test
 
   build-depends:
-                      base                            >= 3          && < 5
+                      base
                     , ambiata-piano
                     , ambiata-disorder-core
                     , ambiata-disorder-corpus
                     , ambiata-disorder-eithert
                     , ambiata-disorder-jack
                     , ambiata-p
-                    , bytestring                      == 0.10.*
-                    , containers                      == 0.5.*
-                    , QuickCheck                      >= 2.8.2      && < 2.9
-                    , quickcheck-instances            == 0.3.*
-                    , semigroups                      >= 0.17       && < 0.19
-                    , thyme                           == 0.3.*
-                    , vector                          == 0.11.*
+                    , bytestring
+                    , containers
+                    , QuickCheck
+                    , quickcheck-instances
+                    , semigroups
+                    , thyme
+                    , vector
 
 test-suite test-io
   type:
@@ -151,14 +153,14 @@ test-suite test-io
                     test
 
   build-depends:
-                      base                            >= 3          && < 5
+                      base
                     , ambiata-piano
                     , ambiata-disorder-core
                     , ambiata-disorder-corpus
                     , ambiata-p
                     , text
-                    , QuickCheck                      >= 2.8.2      && < 2.9
-                    , quickcheck-instances            == 0.3.*
+                    , QuickCheck
+                    , quickcheck-instances
 
 test-suite test-cli
   type:
@@ -174,6 +176,6 @@ test-suite test-cli
                     test
 
   build-depends:
-                      base                            >= 3          && < 5
+                      base
                     , ambiata-piano
                     , ambiata-disorder-core
