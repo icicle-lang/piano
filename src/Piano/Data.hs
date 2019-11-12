@@ -35,6 +35,7 @@ import qualified Data.Foldable as Foldable
 import           Data.List.NonEmpty (NonEmpty)
 import           Data.Map (Map)
 import qualified Data.Map as Map
+import           Data.Proxy (Proxy (..))
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.Thyme (Day(..))
@@ -50,8 +51,6 @@ import           GHC.Generics (Generic)
 import           Foreign.ForeignPtr (ForeignPtr)
 
 import           P
-
-import qualified Prelude as Savage
 
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -104,19 +103,19 @@ data Key =
     } deriving (Eq, Ord, Generic)
 
 instance American.Lexicographic Key where
-  terminate (Key (Entity _ eid) (Label _ lb)) n =
+  extent (Key (Entity _ eid) (Label _ lb)) =
     -- Unforunately we can't write this in terms of the other instances, so we
     -- have to cheat and inline their implementations:
     --
     --   n >= sizeof(entity hash) + sizeof(entity id) + sizeof(label time) + sizeof(label name)
     --
-    n >= 4 + B.length eid + 8 + B.length lb
-  {-# INLINE terminate #-}
+    4 + B.length eid + 8 + B.length lb
+  {-# INLINE extent #-}
 
   size _ =
-    American.size (Savage.undefined :: Word32) `max`
-    American.size (Savage.undefined :: ByteString) `max`
-    American.size (Savage.undefined :: Int64)
+    American.size (Proxy :: Proxy Word32) `max`
+    American.size (Proxy :: Proxy ByteString) `max`
+    American.size (Proxy :: Proxy Int64)
   {-# INLINE size #-}
 
   index i (Key (Entity h e) (Label (EndTime t) l)) =
@@ -183,10 +182,10 @@ sortUnboxedKeys fp keys =
           (Key (Entity hash1 (PS fp eoff1 elen1)) (Label time1 (PS fp loff1 llen1)))
 
       terminate (hash, eoff, elen, time, loff, llen) n =
-        American.terminate (Key (Entity hash (PS fp eoff elen)) (Label time (PS fp loff llen))) n
+        n >= American.extent (Key (Entity hash (PS fp eoff elen)) (Label time (PS fp loff llen)))
 
       size =
-        American.size (Key (Entity 0 B.empty) (Label (EndTime 0) B.empty))
+        American.size (Proxy :: Proxy Key)
 
       index i (hash, eoff, elen, time, loff, llen) =
         American.index i (Key (Entity hash (PS fp eoff elen)) (Label time (PS fp loff llen)))

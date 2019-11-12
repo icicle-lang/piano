@@ -1,0 +1,12 @@
+packages: ./
+          lib/p/
+          lib/x/x-optparse
+          lib/x/x-show
+          lib/x/x-vector
+          lib/anemone
+
+constraints:
+  cabal > 2
+
+package ambiata-piano
+  tests: True

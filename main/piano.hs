@@ -2,10 +2,9 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-import           BuildInfo_ambiata_piano
-import           DependencyInfo_ambiata_piano
-
 import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad.Trans.Either (EitherT, hoistEither)
+import           Control.Monad.Trans.Either.Exit (orDie)
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as Char8
@@ -22,8 +21,6 @@ import           System.IO (IO, FilePath, BufferMode(..))
 import           System.IO (hSetBuffering, stdout, stderr, putStrLn, print)
 import           System.Exit (exitSuccess)
 
-import           X.Control.Monad.Trans.Either (EitherT, hoistEither)
-import           X.Control.Monad.Trans.Either.Exit (orDie)
 import           X.Options.Applicative (Parser, Mod, CommandFields)
 import           X.Options.Applicative (SafeCommand(..), RunType(..))
 import           X.Options.Applicative (dispatch, safeCommand, command')
@@ -51,9 +48,9 @@ main = do
   dispatch parser >>= \sc ->
     case sc of
       VersionCommand ->
-        putStrLn buildInfoVersion >> exitSuccess
+        putStrLn "0.1" >> exitSuccess
       DependencyCommand ->
-        mapM_ putStrLn dependencyInfo
+        mapM_ putStrLn []
       RunCommand DryRun c ->
         print c >> exitSuccess
       RunCommand RealRun c ->

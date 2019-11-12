@@ -3,15 +3,18 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Test.Piano.Jack where
 
-import           Disorder.Corpus (muppets, boats)
-import           Disorder.Jack
-
 import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Char8 as Char8
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Data.Thyme.Time (fromGregorian, toGregorian)
 import           Data.Word (Word8)
+
+import           Hedgehog
+import           Hedgehog.Corpus
+import qualified Hedgehog.Gen as Gen
+import           Hedgehog.Gen.QuickCheck
+import qualified Hedgehog.Range as Range
 
 import           P
 
@@ -20,35 +23,33 @@ import           Piano.Data
 import           Text.Printf (printf)
 
 
-jKey :: Jack Key
+jKey :: Gen Key
 jKey =
   Key
     <$> jEntity
     <*> jLabel
 
-jDateKey :: Jack Key
+jDateKey :: Gen Key
 jDateKey =
   Key
     <$> jEntity
     <*> jDateLabel
 
-jEntity :: Jack Entity
+jEntity :: Gen Entity
 jEntity =
   fmap mkEntity $
-  oneOf [
-      elements muppets
-    , ByteString.pack <$> listOf jNameChar
+  Gen.choice [
+      Gen.element muppets
+    , ByteString.pack <$> Gen.list (Range.linear 1 30) jNameChar
     ]
 
-jNameChar :: Jack Word8
+jNameChar :: Gen Word8
 jNameChar =
-  arbitrary `suchThat` \b ->
-    b /= pipe &&
-    b /= feed
+  Gen.filter (\b -> b /= pipe && b /= feed) arbitrary
 
-jPiano :: Jack Piano
+jPiano :: Gen Piano
 jPiano =
-  fromKeys <$> listOf1 jDateKey
+  fromKeys <$> Gen.nonEmpty (Range.linear 1 1000) jDateKey
 
 feed :: Word8
 feed =
@@ -58,26 +59,26 @@ pipe :: Word8
 pipe =
   0x7C -- '|'
 
-jLabel :: Jack Label
+jLabel :: Gen Label
 jLabel =
   Label
     <$> jEndTime
-    <*> oneOf [elements boats, ByteString.pack <$> listOf jNameChar]
+    <*> Gen.choice [Gen.element boats, ByteString.pack <$> Gen.list (Range.linear 1 30) jNameChar]
 
-jDateLabel :: Jack Label
+jDateLabel :: Gen Label
 jDateLabel = do
   time <- jEndTime
   case toGregorian $ fromExclusive time of
     (y, m, d) ->
       pure $ Label time (Char8.pack $ printf "%04d-%02d-%02d" y m d)
 
-jEndTime :: Jack EndTime
+jEndTime :: Gen EndTime
 jEndTime =
   fmap fromInclusive $
   fromGregorian
-    <$> choose (1600, 3000)
-    <*> choose (1, 12)
-    <*> choose (1, 31)
+    <$> Gen.int (Range.linear 1600 3000)
+    <*> Gen.int (Range.linear 1 12)
+    <*> Gen.int (Range.linear 1 31)
 
 toKeys :: Piano -> [Key]
 toKeys =

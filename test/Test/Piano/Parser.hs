@@ -3,9 +3,11 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Test.Piano.Parser where
 
-import           Disorder.Core.Run (ExpectedTestSpeed(..), disorderCheckEnvAll)
-import           Disorder.Either (testEither)
-import           Disorder.Jack
+import           Hedgehog
+import qualified Hedgehog.Gen as Gen
+import qualified Hedgehog.Range as Range
+
+import           Control.Monad.Trans.Either
 
 import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Map.Strict as Map
@@ -22,56 +24,58 @@ import           Test.Piano.Jack
 
 
 prop_parse_keys_valid_map :: Property
-prop_parse_keys_valid_map =
-  gamble jDateKey $ \k0@(Key e t) ->
-  gamble (listOf jDateKey) $ \ks0 ->
-    testEither renderParserError $ do
-      let
-        keys0 =
-          k0 :| ks0
+prop_parse_keys_valid_map = property $ do
+  k0@(Key e t) <- forAll jDateKey
+  ks0          <- forAll (Gen.list (Range.linear 1 100) jDateKey)
 
-        piano0 =
-          fromKeys keys0
+  test . evalExceptT $ do
+    let
+      keys0 =
+        k0 :| ks0
 
-      Piano minTime maxTime maxCount ks <-
+      piano0 =
+        fromKeys keys0
+
+    Piano minTime maxTime maxCount ks <-
+      hoistEither $
         parsePiano . renderInclusiveKeys $ toList keys0
 
-      pure $ conjoin [
-          counterexample "Minimum time was incorrect" $
-            pianoMinTime piano0 === minTime
+    annotate "Minimum time was incorrect"
+    pianoMinTime piano0 === minTime
 
-        , counterexample "Maximum time was incorrect" $
-            pianoMaxTime piano0 === maxTime
+    annotate "Maximum time was incorrect"
+    pianoMaxTime piano0 === maxTime
 
-        , counterexample "Maximum count was incorrect" $
-            pianoMaxCount piano0 === maxCount
+    annotate "Maximum count was incorrect"
+    pianoMaxCount piano0 === maxCount
 
-        , case Map.lookup e ks of
-            Nothing ->
-              counterexample ("Entity not found: " <> show e) $
-              False
-            Just ts ->
-              counterexample ("Found entity: " <> show (e, ts)) $
-              counterexample ("Time was missing: " <> show t) $
-              Set.member t ts
-        ]
+    case Map.lookup e ks of
+      Nothing -> do
+        annotate $ "Entity not found: " <> show e
+        failure
+
+      Just ts -> do
+        annotate ("Found entity: " <> show (e, ts))
+        annotate ("Time was missing: " <> show t)
+        assert $ Set.member t ts
+
 
 prop_tripping_keys :: Property
-prop_tripping_keys =
-  gamble (fromKeys <$> listOf1 jDateKey) $
-    tripping (renderInclusiveKeys . toKeys) parsePiano
+prop_tripping_keys = property $
+  forAll (fromKeys <$> Gen.nonEmpty (Range.linear 1 100) jDateKey) >>=
+    tripping `flip` (renderInclusiveKeys . toKeys) `flip` parsePiano
 
 prop_tripping_key :: Property
-prop_tripping_key =
-  gamble jDateKey $
-    tripping renderInclusiveKey parseKey
+prop_tripping_key = property $
+  forAll jDateKey >>=
+    tripping `flip` renderInclusiveKey `flip` parseKey
 
 prop_tripping_date :: Property
-prop_tripping_date =
-  gamble (fromExclusive <$> jEndTime) $
-    tripping renderDate parseDate
+prop_tripping_date = property $
+  forAll (fromExclusive <$> jEndTime) >>=
+    tripping `flip` renderDate `flip` parseDate
 
 return []
 tests :: IO Bool
 tests =
-  $disorderCheckEnvAll TestRunMore
+  checkParallel $$(discover)

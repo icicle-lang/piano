@@ -21,17 +21,16 @@ library
                     , ambiata-p
                     , ambiata-x-show
                     , ambiata-x-vector
-                    , bindings-DSL                    >= 1.0.0      && <= 1.0.23
-                    , bytestring                      == 0.10.*
-                    , containers                      == 0.5.*
-                    , semigroups                      >= 0.17       && < 0.19
+                    , bindings-DSL                    >= 1.0.0      && <= 1.0.26
+                    , bytestring                      >= 0.10
+                    , containers                      >= 0.5
+                    , semigroups                      >= 0.17       && < 0.21
                     , text                            == 1.2.*
                     , thyme                           == 0.3.*
                     , transformers                    >= 0.3        && < 0.6
+                    , transformers-either
                     , vector                          >= 0.11       && < 0.13
-                    -- Didn't follow the PVP and changed their class for
-                    -- American.Lexicographic
-                    , vector-algorithms               == 0.7.0.1
+                    , vector-algorithms               >= 0.8
                     , vector-th-unbox                 == 0.2.*
 
   ghc-options:
@@ -78,13 +77,13 @@ executable piano
                       base
                     , ambiata-piano
                     , ambiata-p
-                    , ambiata-x-eithert
                     , ambiata-x-optparse
                     , bytestring
                     , optparse-applicative
                     , text
                     , thyme
                     , transformers
+                    , transformers-either
                     , vector
 
 benchmark piano-bench
@@ -126,56 +125,13 @@ test-suite test
   build-depends:
                       base
                     , ambiata-piano
-                    , ambiata-disorder-core
-                    , ambiata-disorder-corpus
-                    , ambiata-disorder-eithert
-                    , ambiata-disorder-jack
                     , ambiata-p
                     , bytestring
                     , containers
-                    , QuickCheck
-                    , quickcheck-instances
+                    , hedgehog
+                    , hedgehog-corpus
+                    , hedgehog-quickcheck
                     , semigroups
                     , thyme
+                    , transformers-either
                     , vector
-
-test-suite test-io
-  type:
-                    exitcode-stdio-1.0
-
-  main-is:
-                    test-io.hs
-
-  ghc-options:
-                    -Wall -threaded -O2
-
-  hs-source-dirs:
-                    test
-
-  build-depends:
-                      base
-                    , ambiata-piano
-                    , ambiata-disorder-core
-                    , ambiata-disorder-corpus
-                    , ambiata-p
-                    , text
-                    , QuickCheck
-                    , quickcheck-instances
-
-test-suite test-cli
-  type:
-                    exitcode-stdio-1.0
-
-  main-is:
-                    test-cli.hs
-
-  ghc-options:
-                    -Wall -threaded -O2
-
-  hs-source-dirs:
-                    test
-
-  build-depends:
-                      base
-                    , ambiata-piano
-                    , ambiata-disorder-core

@@ -3,8 +3,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Test.Piano.Data where
 
-import           Disorder.Core.Run (ExpectedTestSpeed(..), disorderCheckEnvAll)
-import           Disorder.Jack
+import           Hedgehog
+import qualified Hedgehog.Gen as Gen
+import qualified Hedgehog.Range as Range
+
 
 import qualified Data.ByteString as ByteString
 import           Data.ByteString.Internal (ByteString(..))
@@ -69,23 +71,25 @@ toUnboxedKeys keys =
 
 prop_sort_keys :: Property
 prop_sort_keys =
-  gamble (listOf jKey) $ \keys ->
-    List.sort keys
-    ===
-    Boxed.toList (sortKeys (Boxed.fromList keys))
+  property $
+    forAll (Gen.list (Range.linear 1 1000) jKey) >>= \keys ->
+      List.sort keys === Boxed.toList (sortKeys (Boxed.fromList keys))
 
 prop_sort_unboxed_keys :: Property
 prop_sort_unboxed_keys =
-  gamble (listOf jKey) $ \keys ->
-    List.sort keys
-    ===
+  property $
+  forAll (Gen.list (Range.linear 1 1000) jKey) >>= \keys ->
     let
       (fp, ukeys) =
         toUnboxedKeys keys
+
+      res =
+        fromUnboxedKeys fp (sortUnboxedKeys fp ukeys)
+
     in
-      fromUnboxedKeys fp (sortUnboxedKeys fp ukeys)
+      List.sort keys === res
 
 return []
 tests :: IO Bool
 tests =
-  $disorderCheckEnvAll TestRunMore
+  checkParallel $$(discover)
