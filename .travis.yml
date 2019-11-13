@@ -116,9 +116,10 @@ install:
     echo "packages: lib/x/x-show" >> cabal.project
     echo "packages: lib/x/x-vector" >> cabal.project
     echo "packages: lib/anemone" >> cabal.project
+    echo "packages: lib/disorder/disorder-core" >> cabal.project
   - |
     echo "constraints: cabal > 2" >> cabal.project
-  - "for pkg in $($HCPKG list --simple-output); do echo $pkg | sed 's/-[^-]*$//' | (grep -vE -- '^(ambiata-anemone|ambiata-p|ambiata-piano|ambiata-x-optparse|ambiata-x-show|ambiata-x-vector)$' || true) | sed 's/^/constraints: /' | sed 's/$/ installed/' >> cabal.project.local; done"
+  - "for pkg in $($HCPKG list --simple-output); do echo $pkg | sed 's/-[^-]*$//' | (grep -vE -- '^(ambiata-anemone|ambiata-disorder-core|ambiata-p|ambiata-piano|ambiata-x-optparse|ambiata-x-show|ambiata-x-vector)$' || true) | sed 's/^/constraints: /' | sed 's/$/ installed/' >> cabal.project.local; done"
   - cat cabal.project || true
   - cat cabal.project.local || true
   - if [ -f "./configure.ac" ]; then (cd "." && autoreconf -i); fi
@@ -127,6 +128,7 @@ install:
   - if [ -f "lib/x/x-show/configure.ac" ]; then (cd "lib/x/x-show" && autoreconf -i); fi
   - if [ -f "lib/x/x-vector/configure.ac" ]; then (cd "lib/x/x-vector" && autoreconf -i); fi
   - if [ -f "lib/anemone/configure.ac" ]; then (cd "lib/anemone" && autoreconf -i); fi
+  - if [ -f "lib/disorder/disorder-core/configure.ac" ]; then (cd "lib/disorder/disorder-core" && autoreconf -i); fi
   - ${CABAL} v2-freeze $WITHCOMPILER ${TEST} ${BENCH} | color_cabal_output
   - "cat cabal.project.freeze | sed -E 's/^(constraints: *| *)//' | sed 's/any.//'"
   - rm  cabal.project.freeze
@@ -147,6 +149,7 @@ script:
   - PKGDIR_ambiata_x_show="$(find . -maxdepth 1 -type d -regex '.*/ambiata-x-show-[0-9.]*')"
   - PKGDIR_ambiata_x_vector="$(find . -maxdepth 1 -type d -regex '.*/ambiata-x-vector-[0-9.]*')"
   - PKGDIR_ambiata_anemone="$(find . -maxdepth 1 -type d -regex '.*/ambiata-anemone-[0-9.]*')"
+  - PKGDIR_ambiata_disorder_core="$(find . -maxdepth 1 -type d -regex '.*/ambiata-disorder-core-[0-9.]*')"
   # Generate cabal.project
   - rm -rf cabal.project cabal.project.local cabal.project.freeze
   - touch cabal.project
@@ -157,9 +160,10 @@ script:
     echo "packages: ${PKGDIR_ambiata_x_show}" >> cabal.project
     echo "packages: ${PKGDIR_ambiata_x_vector}" >> cabal.project
     echo "packages: ${PKGDIR_ambiata_anemone}" >> cabal.project
+    echo "packages: ${PKGDIR_ambiata_disorder_core}" >> cabal.project
   - |
     echo "constraints: cabal > 2" >> cabal.project
-  - "for pkg in $($HCPKG list --simple-output); do echo $pkg | sed 's/-[^-]*$//' | (grep -vE -- '^(ambiata-anemone|ambiata-p|ambiata-piano|ambiata-x-optparse|ambiata-x-show|ambiata-x-vector)$' || true) | sed 's/^/constraints: /' | sed 's/$/ installed/' >> cabal.project.local; done"
+  - "for pkg in $($HCPKG list --simple-output); do echo $pkg | sed 's/-[^-]*$//' | (grep -vE -- '^(ambiata-anemone|ambiata-disorder-core|ambiata-p|ambiata-piano|ambiata-x-optparse|ambiata-x-show|ambiata-x-vector)$' || true) | sed 's/^/constraints: /' | sed 's/$/ installed/' >> cabal.project.local; done"
   - cat cabal.project || true
   - cat cabal.project.local || true
   # Building...
@@ -177,6 +181,7 @@ script:
   - (cd ${PKGDIR_ambiata_x_show} && ${CABAL} -vnormal check)
   - (cd ${PKGDIR_ambiata_x_vector} && ${CABAL} -vnormal check)
   - (cd ${PKGDIR_ambiata_anemone} && ${CABAL} -vnormal check)
+  - (cd ${PKGDIR_ambiata_disorder_core} && ${CABAL} -vnormal check)
   # haddock...
   - ${CABAL} v2-haddock $WITHCOMPILER --with-haddock $HADDOCK ${TEST} ${BENCH} all | color_cabal_output
   # Building without installed constraints for packages in global-db...
