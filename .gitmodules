@@ -7,3 +7,6 @@
 [submodule "lib/anemone"]
 	path = lib/anemone
 	url = ../anemone
+[submodule "lib/disorder"]
+	path = lib/disorder
+	url = ../disorder

@@ -147,3 +147,9 @@ test-suite test
                     , thyme
                     , transformers-either
                     , vector
+
+  other-modules:
+                      Test.Piano.Data
+                      Test.Piano.Foreign
+                      Test.Piano.Jack
+                      Test.Piano.Parser

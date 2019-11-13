@@ -4,6 +4,7 @@ packages: ./
           lib/x/x-show
           lib/x/x-vector
           lib/anemone
+          lib/disorder/disorder-core
 
 constraints:
   cabal > 2
