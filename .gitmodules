@@ -1,12 +1,9 @@
 [submodule "lib/p"]
 	path = lib/p
-	url = git@github.com:HuwCampbell/p
-[submodule "lib/disorder"]
-	path = lib/disorder
-	url = git@github.com:HuwCampbell/disorder.hs
+	url = ../p
 [submodule "lib/x"]
 	path = lib/x
-	url = git@github.com:HuwCampbell/x
+	url = ../x
 [submodule "lib/anemone"]
 	path = lib/anemone
-	url = git@github.com:HuwCampbell/anemone
+	url = ../anemone

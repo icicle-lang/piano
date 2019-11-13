@@ -1,6 +1,7 @@
 name:                  ambiata-piano
 version:               0.0.1
-license:               AllRightsReserved
+license:               BSD3
+license-file:          LICENSE
 author:                Ambiata <info@ambiata.com>
 maintainer:            Ambiata <info@ambiata.com>
 copyright:             (c) 2015 Ambiata.
@@ -8,11 +9,22 @@ synopsis:              piano
 category:              System
 cabal-version:         >= 1.8
 build-type:            Simple
-description:           piano
+description:           Specifation of Chord files
+
+tested-with:
+  GHC==8.0.2,
+  GHC==8.2.2,
+  GHC==8.4.4,
+  GHC==8.6.5,
+  GHC==8.8.1
 
 extra-source-files:
                     csrc/*.h
                     csrc/*.c
+
+source-repository head
+  type:     git
+  location: https://github.com/icicle-lang/piano.git
 
 library
   build-depends:
@@ -34,7 +46,7 @@ library
                     , vector-th-unbox                 == 0.2.*
 
   ghc-options:
-                    -Wall -O2
+                    -Wall
 
   hs-source-dirs:
                     src
@@ -61,11 +73,11 @@ library
                     csrc/piano.c
 
   cc-options:
-                    -std=c99 -O3 -msse4.2 -Wall -Werror -Wno-unused-command-line-argument -DCABAL=1
+                    -std=c99 -msse4.2 -Wall -Werror -Wno-unused-command-line-argument -DCABAL=1
 
 executable piano
   ghc-options:
-                    -Wall -threaded -O2
+                    -Wall -threaded
 
   hs-source-dirs:
                     gen
@@ -94,7 +106,7 @@ benchmark piano-bench
                     piano-bench.hs
 
   ghc-options:
-                    -Wall -threaded -O2
+                    -Wall -threaded
 
   hs-source-dirs:
                     bench
@@ -117,7 +129,7 @@ test-suite test
                     test.hs
 
   ghc-options:
-                    -Wall -threaded -O2
+                    -Wall -threaded
 
   hs-source-dirs:
                     test
