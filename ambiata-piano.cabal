@@ -80,10 +80,10 @@ executable piano
                     -Wall -threaded
 
   hs-source-dirs:
-                    gen
+                    main
 
   main-is:
-                    ../main/piano.hs
+                    piano.hs
 
   build-depends:
                       base
