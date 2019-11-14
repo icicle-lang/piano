@@ -176,12 +176,6 @@ script:
   - ${CABAL} v2-test $WITHCOMPILER ${TEST} ${BENCH} all | color_cabal_output
   # cabal check...
   - (cd ${PKGDIR_ambiata_piano} && ${CABAL} -vnormal check)
-  - (cd ${PKGDIR_ambiata_p} && ${CABAL} -vnormal check)
-  - (cd ${PKGDIR_ambiata_x_optparse} && ${CABAL} -vnormal check)
-  - (cd ${PKGDIR_ambiata_x_show} && ${CABAL} -vnormal check)
-  - (cd ${PKGDIR_ambiata_x_vector} && ${CABAL} -vnormal check)
-  - (cd ${PKGDIR_ambiata_anemone} && ${CABAL} -vnormal check)
-  - (cd ${PKGDIR_ambiata_disorder_core} && ${CABAL} -vnormal check)
   # haddock...
   - ${CABAL} v2-haddock $WITHCOMPILER --with-haddock $HADDOCK ${TEST} ${BENCH} all | color_cabal_output
   # Building without installed constraints for packages in global-db...
