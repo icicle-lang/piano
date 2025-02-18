@@ -37,11 +37,11 @@ library
                     , bytestring                      >= 0.10
                     , containers                      >= 0.5
                     , semigroups                      >= 0.17       && < 0.21
-                    , text                            == 1.2.*
+                    , text                            >= 2.0        && < 2.2
                     , thyme                           >= 0.3        && < 0.5
-                    , transformers                    >= 0.3        && < 0.6
+                    , transformers                    >= 0.3        && < 0.7
                     , transformers-either
-                    , vector                          >= 0.11       && < 0.13
+                    , vector                          >= 0.11       && < 0.14
                     , vector-algorithms               >= 0.8
                     , vector-th-unbox                 == 0.2.*
 
