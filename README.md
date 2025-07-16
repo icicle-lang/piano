@@ -3,7 +3,7 @@
 # Piano.
 A musical instrument in which hammers, operated from a keyboard of ivories, strike its cast of strings.
 
-[![Build Status](https://api.travis-ci.com/icicle-lang/piano.svg?branch=master)](https://travis-ci.com/icicle-lang/piano)
+![Build Status](https://github.com/icicle-lang/piano/actions/workflows/haskell.yml/badge.svg)
 
 </div>
 
