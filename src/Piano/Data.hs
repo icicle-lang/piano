@@ -29,6 +29,8 @@ module Piano.Data (
 
 import           Anemone.Foreign.Hash (fasthash32')
 
+import           Control.Monad.ST (runST)
+
 import qualified Data.ByteString as B
 import           Data.ByteString.Internal (ByteString(..))
 import qualified Data.Foldable as Foldable
@@ -42,17 +44,12 @@ import           Data.Thyme (Day(..))
 import           Data.Thyme.Time (addDays, diffDays)
 import qualified Data.Vector as Boxed
 import qualified Data.Vector.Algorithms.AmericanFlag as American
-import qualified Data.Vector.Unboxed as Unboxed
 import           Data.Vector.Unboxed.Deriving (derivingUnbox)
-import           Data.Word (Word8, Word32)
+import           Data.Word (Word32)
 
 import           GHC.Generics (Generic)
 
-import           Foreign.ForeignPtr (ForeignPtr)
-
 import           P
-
-import           System.IO.Unsafe (unsafePerformIO)
 
 import           X.Text.Show (gshowsPrec)
 
@@ -162,37 +159,36 @@ derivingUnbox "EndTime"
 
 sortKeys :: Boxed.Vector Key -> Boxed.Vector Key
 sortKeys keys =
-  unsafePerformIO $ do
+  runST $ do
     mkeys <- Boxed.thaw keys
     American.sort mkeys
     Boxed.unsafeFreeze mkeys
 
 sortUnboxedKeys ::
-  ForeignPtr Word8 ->
-  Unboxed.Vector (Word32, Int, Int, EndTime, Int, Int) ->
-  Unboxed.Vector (Word32, Int, Int, EndTime, Int, Int)
-sortUnboxedKeys fp keys =
-  unsafePerformIO $ do
-    mkeys <- Unboxed.thaw keys
+  Boxed.Vector (Word32, ByteString, EndTime, ByteString) ->
+  Boxed.Vector (Word32, ByteString, EndTime, ByteString)
+sortUnboxedKeys keys =
+  runST $ do
+    mkeys <- Boxed.thaw keys
 
     let
-      cmp (hash0, eoff0, elen0, time0, loff0, llen0) (hash1, eoff1, elen1, time1, loff1, llen1) =
+      cmp (hash0, ent0, time0, lab0) (hash1, ent1, time1, lab1) =
         compare
-          (Key (Entity hash0 (PS fp eoff0 elen0)) (Label time0 (PS fp loff0 llen0)))
-          (Key (Entity hash1 (PS fp eoff1 elen1)) (Label time1 (PS fp loff1 llen1)))
+          (Key (Entity hash0 ent0) (Label time0 lab0))
+          (Key (Entity hash1 ent1) (Label time1 lab1))
 
-      terminate (hash, eoff, elen, time, loff, llen) n =
-        n >= American.extent (Key (Entity hash (PS fp eoff elen)) (Label time (PS fp loff llen)))
+      terminate (hash, ent, time, lab) n =
+        n >= American.extent (Key (Entity hash ent) (Label time lab))
 
       size =
         American.size (Proxy :: Proxy Key)
 
-      index i (hash, eoff, elen, time, loff, llen) =
-        American.index i (Key (Entity hash (PS fp eoff elen)) (Label time (PS fp loff llen)))
+      index i (hash, ent, time, lab) =
+        American.index i (Key (Entity hash ent) (Label time lab))
 
     American.sortBy cmp terminate size index mkeys
 
-    Unboxed.unsafeFreeze mkeys
+    Boxed.unsafeFreeze mkeys
 
 fromKey :: Key -> (Entity, Set Label)
 fromKey (Key e t) =

@@ -31,10 +31,8 @@ import qualified Data.Set as Set
 import qualified Data.Text.Encoding as T
 import           Data.Thyme (Day)
 import           Data.Thyme.Time (toGregorian)
-import qualified Data.Vector.Unboxed as Unboxed
+import qualified Data.Vector as Boxed
 import           Data.Word (Word8, Word32)
-
-import           Foreign.ForeignPtr (ForeignPtr)
 
 import           P
 
@@ -64,14 +62,14 @@ renderParserError = \case
     "Failed parsing chord descriptor, the file was empty."
 
 parsePiano :: ByteString -> Either ParserError Piano
-parsePiano bss0@(PS fp _ _) =
+parsePiano bss0 =
   runST $ do
     u <- Grow.new 1024
 
     let
       loop bss1 =
         if B.null bss1 then
-          fromUnboxedKeys fp <$> Grow.unsafeFreeze u
+          fromUnboxedKeys <$> Grow.unsafeFreeze u
         else
           let
             (bs, bss2) =
@@ -85,28 +83,22 @@ parsePiano bss0@(PS fp _ _) =
                   hash =
                     entityHash entity
 
-                  PS _ eoff elen =
-                    entityId entity
-
-                  PS _ loff llen =
-                    label
-
-                Grow.add u (hash, eoff, elen, time, loff, llen)
+                Grow.add u (hash, entityId entity, time, label)
                 loop bss2
 
     loop bss0
 {-# INLINE parsePiano #-}
 
-fromUnboxedKeys :: ForeignPtr Word8 -> Unboxed.Vector (Word32, Int, Int, EndTime, Int, Int) -> Either ParserError Piano
-fromUnboxedKeys fp xs =
+fromUnboxedKeys :: Boxed.Vector (Word32, ByteString, EndTime, ByteString) -> Either ParserError Piano
+fromUnboxedKeys xs =
   let
     minTime =
-      Unboxed.minimum $
-      Unboxed.map (\(_, _, _, t, _, _) -> t) xs
+      Boxed.minimum $
+      Boxed.map (\(_, _, t, _) -> t) xs
 
     maxTime =
-      Unboxed.maximum $
-      Unboxed.map (\(_, _, _, t, _, _) -> t) xs
+      Boxed.maximum $
+      Boxed.map (\(_, _, t, _) -> t) xs
 
     maxCount =
       List.maximum .
@@ -115,19 +107,19 @@ fromUnboxedKeys fp xs =
 
     entities =
       Map.fromAscListWith Set.union .
-      fmap (fromUnboxedKey fp) .
-      Unboxed.toList $
-      sortUnboxedKeys fp xs
+      fmap fromUnboxedKey .
+      Boxed.toList $
+      sortUnboxedKeys xs
   in
-    if Unboxed.null xs then
+    if Boxed.null xs then
       Left ParserNoData
     else
       Right $ Piano minTime maxTime maxCount entities
 {-# INLINE fromUnboxedKeys #-}
 
-fromUnboxedKey :: ForeignPtr Word8 -> (Word32, Int, Int, EndTime, Int, Int) -> (Entity, Set Label)
-fromUnboxedKey fp (hash, eoff, elen, time, loff, llen) =
-  (unsafeMkEntity hash $ PS fp eoff elen, Set.singleton . Label time $ PS fp loff llen)
+fromUnboxedKey :: (Word32, ByteString, EndTime, ByteString) -> (Entity, Set Label)
+fromUnboxedKey (hash, ent, time, lab) =
+  (unsafeMkEntity hash $ ent, Set.singleton . Label time $ lab)
 {-# INLINE fromUnboxedKey #-}
 
 parseKey :: ByteString -> Either ParserError Key
