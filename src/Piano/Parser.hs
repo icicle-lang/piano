@@ -32,7 +32,7 @@ import qualified Data.Text.Encoding as T
 import           Data.Thyme (Day)
 import           Data.Thyme.Time (toGregorian)
 import qualified Data.Vector as Boxed
-import           Data.Word (Word8, Word32)
+import           Data.Word (Word8)
 
 import           P
 
@@ -69,7 +69,7 @@ parsePiano bss0 =
     let
       loop bss1 =
         if B.null bss1 then
-          fromUnboxedKeys <$> Grow.unsafeFreeze u
+          fromKeysVector <$> Grow.unsafeFreeze u
         else
           let
             (bs, bss2) =
@@ -78,27 +78,23 @@ parsePiano bss0 =
             case parseKey bs of
               Left err ->
                 pure $ Left err
-              Right (Key entity (Label time label)) -> do
-                let
-                  hash =
-                    entityHash entity
-
-                Grow.add u (hash, entityId entity, time, label)
+              Right key -> do
+                Grow.add u key
                 loop bss2
 
     loop bss0
 {-# INLINE parsePiano #-}
 
-fromUnboxedKeys :: Boxed.Vector (Word32, ByteString, EndTime, ByteString) -> Either ParserError Piano
-fromUnboxedKeys xs =
+fromKeysVector :: Boxed.Vector Key -> Either ParserError Piano
+fromKeysVector xs =
   let
     minTime =
       Boxed.minimum $
-      Boxed.map (\(_, _, t, _) -> t) xs
+      Boxed.map (\(Key _ (Label t _)) -> t) xs
 
     maxTime =
       Boxed.maximum $
-      Boxed.map (\(_, _, t, _) -> t) xs
+      Boxed.map (\(Key _ (Label t _)) -> t) xs
 
     maxCount =
       List.maximum .
@@ -107,20 +103,20 @@ fromUnboxedKeys xs =
 
     entities =
       Map.fromAscListWith Set.union .
-      fmap fromUnboxedKey .
+      fmap fromKey .
       Boxed.toList $
-      sortUnboxedKeys xs
+      sortKeys xs
   in
     if Boxed.null xs then
       Left ParserNoData
     else
       Right $ Piano minTime maxTime maxCount entities
-{-# INLINE fromUnboxedKeys #-}
+{-# INLINE fromKeysVector #-}
 
-fromUnboxedKey :: (Word32, ByteString, EndTime, ByteString) -> (Entity, Set Label)
-fromUnboxedKey (hash, ent, time, lab) =
-  (unsafeMkEntity hash $ ent, Set.singleton . Label time $ lab)
-{-# INLINE fromUnboxedKey #-}
+fromKey :: Key -> (Entity, Set Label)
+fromKey (Key entity label) =
+  (entity, Set.singleton label)
+{-# INLINE fromKey #-}
 
 parseKey :: ByteString -> Either ParserError Key
 parseKey bs =

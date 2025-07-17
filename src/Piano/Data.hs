@@ -24,7 +24,6 @@ module Piano.Data (
 
   , Key(..)
   , sortKeys
-  , sortUnboxedKeys
   ) where
 
 import           Anemone.Foreign.Hash (fasthash32')
@@ -44,7 +43,6 @@ import           Data.Thyme (Day(..))
 import           Data.Thyme.Time (addDays, diffDays)
 import qualified Data.Vector as Boxed
 import qualified Data.Vector.Algorithms.AmericanFlag as American
-import           Data.Vector.Unboxed.Deriving (derivingUnbox)
 import           Data.Word (Word32)
 
 import           GHC.Generics (Generic)
@@ -115,15 +113,11 @@ instance American.Lexicographic Key where
     American.size (Proxy :: Proxy Int64)
   {-# INLINE size #-}
 
-  index i (Key (Entity h e) (Label (EndTime t) l)) =
-    if i < 4 then
-      American.index i h
-    else if i < 4 + B.length e then
-      American.index (i - 4) e
-    else if i < 4 + B.length e + 8 then
-      American.index (i - 4 - B.length e) t
-    else
-      American.index (i - 4 - B.length e - 8) l
+  index i (Key (Entity h e) (Label (EndTime t) l))
+    | i < 4 = American.index i h
+    | i < 4 + B.length e = American.index (i - 4) e
+    | i < 4 + B.length e + 8 = American.index (i - 4 - B.length e) t
+    | otherwise = American.index (i - 4 - B.length e - 8) l
   {-# INLINE index #-}
 
 instance Show EndTime where
@@ -152,42 +146,11 @@ instance NFData Entity
 
 instance NFData Key
 
-derivingUnbox "EndTime"
-  [t| EndTime -> Int64 |]
-  [| unEndTime |]
-  [| EndTime |]
-
 sortKeys :: Boxed.Vector Key -> Boxed.Vector Key
 sortKeys keys =
   runST $ do
     mkeys <- Boxed.thaw keys
     American.sort mkeys
-    Boxed.unsafeFreeze mkeys
-
-sortUnboxedKeys ::
-  Boxed.Vector (Word32, ByteString, EndTime, ByteString) ->
-  Boxed.Vector (Word32, ByteString, EndTime, ByteString)
-sortUnboxedKeys keys =
-  runST $ do
-    mkeys <- Boxed.thaw keys
-
-    let
-      cmp (hash0, ent0, time0, lab0) (hash1, ent1, time1, lab1) =
-        compare
-          (Key (Entity hash0 ent0) (Label time0 lab0))
-          (Key (Entity hash1 ent1) (Label time1 lab1))
-
-      terminate (hash, ent, time, lab) n =
-        n >= American.extent (Key (Entity hash ent) (Label time lab))
-
-      size =
-        American.size (Proxy :: Proxy Key)
-
-      index i (hash, ent, time, lab) =
-        American.index i (Key (Entity hash ent) (Label time lab))
-
-    American.sortBy cmp terminate size index mkeys
-
     Boxed.unsafeFreeze mkeys
 
 fromKey :: Key -> (Entity, Set Label)
